@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#060608"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="LifeGrid"/>
+  <title>LifeGrid — Your Life. Tracked.</title>
+  <meta name="description" content="Track habits, goals, budget, mood and time with an AI coach that knows your data. Free to start."/>
+  <meta property="og:title" content="LifeGrid — Your Life. Tracked."/>
+  <meta property="og:description" content="The only life tracker with an AI coach that actually reads your data."/>
+  <meta property="og:type" content="website"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #060608; overscroll-behavior: none; -webkit-font-smoothing: antialiased; }
+    body { overscroll-behavior-y: contain; }
+    #root { height: 100%; }
+    input, textarea, button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 0; background: transparent; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+const C = {
+  bg: "#060608", surface: "#0f0f14", card: "#16161f", card2: "#1c1c28",
+  border: "#252535", borderHi: "#353550",
+  accent: "#6c63ff", accentLo: "#6c63ff18", accentMid: "#6c63ff44",
+  gold: "#fbbf24", goldLo: "#fbbf2418",
+  emerald: "#10b981", emeraldLo: "#10b98118",
+  rose: "#f43f5e", roseLo: "#f43f5e18",
+  sky: "#38bdf8", skyLo: "#38bdf818",
+  text: "#eeeef5", sub: "#9090b0", dim: "#50506a",
+  white: "#ffffff",
+};
+
+const FONT_DISPLAY = "'Syne', sans-serif";
+const FONT_BODY = "'DM Sans', sans-serif";
+const FONT_MONO = "'JetBrains Mono', monospace";
+
+// ─── INITIAL DATA ─────────────────────────────────────────────────────────────
+const INIT_HABITS = [];
+
+const INIT_GOALS = [];
+
+const INIT_BUDGET = {
+  income: 4500, spent: 2840,
+  cats: [
+    { name: "Housing", amount: 1200, budget: 1200, icon: "🏠", color: C.sky },
+    { name: "Food", amount: 380, budget: 400, icon: "🍔", color: C.emerald },
+    { name: "Transport", amount: 220, budget: 250, icon: "🚗", color: C.gold },
+    { name: "Entertainment", amount: 180, budget: 150, icon: "🎬", color: C.rose },
+    { name: "Savings", amount: 500, budget: 600, icon: "🏦", color: C.accent },
+    { name: "Shopping", amount: 360, budget: 300, icon: "🛍️", color: C.rose },
+  ],
+  txns: [
+    { id: 1, label: "Spotify", amount: -9.99, cat: "Entertainment", date: "Today", icon: "🎵" },
+    { id: 2, label: "Grocery Store", amount: -67.40, cat: "Food", date: "Today", icon: "🛒" },
+    { id: 3, label: "Salary", amount: 4500, cat: "Income", date: "Apr 1", icon: "💵" },
+    { id: 4, label: "Netflix", amount: -15.99, cat: "Entertainment", date: "Apr 1", icon: "📺" },
+    { id: 5, label: "Gas Station", amount: -42.00, cat: "Transport", date: "Mar 31", icon: "⛽" },
+  ]
+};
+
+const MOOD_HISTORY = [];
+const MOOD_OPT = [
+  { label:"Amazing", emoji:"🤩", v:5, color: C.gold },
+  { label:"Good", emoji:"😊", v:4, color: C.emerald },
+  { label:"Okay", emoji:"😐", v:3, color: C.sky },
+  { label:"Low", emoji:"😔", v:2, color: C.accent },
+  { label:"Bad", emoji:"😢", v:1, color: C.rose },
+];
+
+const LEADERBOARD = [
+  { rank:1, name:"Alex K.", avatar:"👑", score:2840, streak:34, badge:"🔥" },
+  { rank:2, name:"Priya M.", avatar:"⚡", score:2710, streak:28, badge:"💎" },
+  { rank:3, name:"You", avatar:"🫵", score:2190, streak:20, badge:"🚀", isYou: true },
+  { rank:4, name:"James R.", avatar:"🎯", score:1980, streak:15, badge:"⭐" },
+  { rank:5, name:"Sofia L.", avatar:"🌟", score:1750, streak:12, badge:"✨" },
+  { rank:6, name:"Marcus T.", avatar:"🏆", score:1620, streak:9, badge:"🎖️" },
+];
+
+const TIME_CATS = [
+  { name:"Deep Work", color: C.accent, icon:"💻", minutes: 142 },
+  { name:"Exercise", color: C.emerald, icon:"🏋️", minutes: 45 },
+  { name:"Reading", color: C.sky, icon:"📖", minutes: 38 },
+  { name:"Social Media", color: C.rose, icon:"📱", minutes: 67 },
+  { name:"Meetings", color: C.gold, icon:"🤝", minutes: 90 },
+];
+
+const JOURNAL_PROMPTS = [
+  "What's one thing you're proud of today?",
+  "What challenged you and what did you learn?",
+  "What are you grateful for right now?",
+  "What's one small win you had today?",
+  "What would make tomorrow even better?",
+];
+
+// ─── TINY COMPONENTS ──────────────────────────────────────────────────────────
+const Glow = ({ color, top, left, size = 350, op = 0.06 }) => (
+  <div style={{ position:"absolute", width:size, height:size, borderRadius:"50%",
+    background:color, filter:`blur(${size*0.55}px)`, top, left, opacity:op,
+    pointerEvents:"none", zIndex:0 }} />
+);
+
+const Tag = ({ children, color = C.accent }) => (
+  <span style={{ fontSize:10, fontWeight:700, color, background:color+"22",
+    border:`1px solid ${color}44`, borderRadius:99, padding:"2px 8px",
+    letterSpacing:.5, textTransform:"uppercase" }}>{children}</span>
+);
+
+const Pill = ({ children, active, onClick, color = C.accent }) => (
+  <div onClick={onClick} style={{ padding:"6px 16px", borderRadius:99, cursor:"pointer",
+    fontWeight:600, fontSize:13, transition:"all .2s", userSelect:"none",
+    background: active ? color : C.card2, color: active ? C.white : C.sub,
+    border: `1px solid ${active ? color : C.border}` }}>{children}</div>
+);
+
+function Bar({ value, max, color = C.accent, h = 6 }) {
+  const pct = Math.min(100, (value / max) * 100);
+  return (
+    <div style={{ background:C.border, borderRadius:99, height:h, overflow:"hidden" }}>
+      <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${color}88,${color})`,
+        borderRadius:99, transition:"width .9s cubic-bezier(.4,0,.2,1)",
+        boxShadow:`0 0 10px ${color}66` }} />
+    </div>
+  );
+}
+
+function Ring({ pct, size = 72, color = C.accent, children }) {
+  const r = size / 2 - 6;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  return (
+    <div style={{ position:"relative", width:size, height:size, flexShrink:0 }}>
+      <svg width={size} height={size} style={{ transform:"rotate(-90deg)" }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth={5} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          style={{ transition:"stroke-dasharray .9s cubic-bezier(.4,0,.2,1)" }} />
+      </svg>
+      <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+        justifyContent:"center", fontSize:12, fontWeight:800, color, fontFamily:FONT_MONO }}>{children}</div>
+    </div>
+  );
+}
+
+function Card({ children, style = {}, glow }) {
+  return (
+    <div style={{ background:C.card, border:`1px solid ${glow ? glow+"44" : C.border}`,
+      borderRadius:20, padding:"18px 20px",
+      boxShadow: glow ? `0 0 30px ${glow}18` : "none",
+      ...style }}>{children}</div>
+  );
+}
+
+function SectionTitle({ children, sub }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:20, fontWeight:800, color:C.text, fontFamily:FONT_DISPLAY, letterSpacing:-0.5 }}>{children}</div>
+      {sub && <div style={{ fontSize:13, color:C.sub, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function StatChip({ icon, label, val, color = C.accent }) {
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16,
+      padding:"14px 18px", flex:1, minWidth:110, position:"relative", overflow:"hidden" }}>
+      <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
+      <div style={{ fontSize:24, fontWeight:900, color:C.text, fontFamily:FONT_MONO, letterSpacing:-1 }}>{val}</div>
+      <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>{label}</div>
+      <div style={{ position:"absolute", top:-24, right:-24, width:72, height:72, borderRadius:"50%",
+        background:color, opacity:.1, filter:"blur(8px)" }} />
+    </div>
+  );
+}
+
+// ─── ONBOARDING ───────────────────────────────────────────────────────────────
+function Onboarding({ onDone }) {
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
+  const [goals, setGoals] = useState([]);
+  const [plan, setPlan] = useState(null);
+
+  const GOAL_OPT = ["💪 Get Fit","💰 Save Money","📚 Learn Skills","😴 Sleep Better","🧘 Reduce Stress","🚀 Build Business","📵 Less Screen Time","🏃 Run / Walk Daily"];
+  const PLANS = [
+    { id:"free", label:"Free", price:"$0", desc:"Habits + Goals + Mood", color:C.sub, features:["5 habits","3 goals","Mood log"] },
+    { id:"pro", label:"Pro", price:"$7.99/mo", desc:"Everything + AI Coach", color:C.accent, features:["Unlimited habits & goals","AI Life Coach","Budget tracker","Time tracker","Journal","Leaderboard","Priority support"], badge:"MOST POPULAR" },
+    { id:"yearly", label:"Pro Yearly", price:"$59/yr", desc:"Save 38%", color:C.gold, features:["All Pro features","38% savings","Early access features"], badge:"BEST VALUE" },
+  ];
+
+  const steps = [
+    // Step 0 — Welcome
+    <div key="0" style={{ textAlign:"center", padding:"40px 0" }}>
+      <div style={{ fontSize:72, marginBottom:16 }}>⚡</div>
+      <div style={{ fontSize:36, fontWeight:900, fontFamily:FONT_DISPLAY, color:C.text, marginBottom:8, letterSpacing:-1 }}>LifeGrid</div>
+      <div style={{ fontSize:16, color:C.sub, marginBottom:8, lineHeight:1.6 }}>The only tracker you'll ever need.<br/>Habits · Goals · Budget · Mood · AI Coach</div>
+      <div style={{ display:"flex", gap:8, justifyContent:"center", marginTop:16, flexWrap:"wrap" }}>
+        {["50K+ users","4.9★ rating","Free to start"].map(t => <Tag key={t} color={C.accent}>{t}</Tag>)}
+      </div>
+      <button onClick={() => setStep(1)} style={btnStyle(C.accent)}>Get Started Free →</button>
+    </div>,
+
+    // Step 1 — Name
+    <div key="1" style={{ padding:"20px 0" }}>
+      <div style={{ fontSize:28, fontWeight:800, fontFamily:FONT_DISPLAY, color:C.text, marginBottom:8 }}>What's your name? 👋</div>
+      <div style={{ color:C.sub, marginBottom:24 }}>We'll personalise your experience</div>
+      <input value={name} onChange={e => setName(e.target.value)}
+        placeholder="Your first name..."
+        style={{ width:"100%", background:C.card2, border:`1px solid ${C.border}`, borderRadius:14,
+          padding:"14px 18px", color:C.text, fontSize:16, outline:"none",
+          fontFamily:FONT_BODY, boxSizing:"border-box", marginBottom:20 }} />
+      <button onClick={() => name.trim() && setStep(2)} style={btnStyle(C.accent, !name.trim())}>Continue →</button>
+    </div>,
+
+    // Step 2 — Focus areas
+    <div key="2" style={{ padding:"20px 0" }}>
+      <div style={{ fontSize:26, fontWeight:800, fontFamily:FONT_DISPLAY, color:C.text, marginBottom:6 }}>What do you want to improve? 🎯</div>
+      <div style={{ color:C.sub, marginBottom:20, fontSize:14 }}>Pick all that apply</div>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom:24 }}>
+        {GOAL_OPT.map(g => (
+          <div key={g} onClick={() => setGoals(prev => prev.includes(g) ? prev.filter(x=>x!==g) : [...prev,g])}
+            style={{ padding:"10px 16px", borderRadius:12, cursor:"pointer", fontSize:14, fontWeight:600,
+              background: goals.includes(g) ? C.accent+"33" : C.card2,
+              border:`1px solid ${goals.includes(g) ? C.accent : C.border}`,
+              color: goals.includes(g) ? C.accent : C.sub, transition:"all .15s" }}>{g}</div>
+        ))}
+      </div>
+      <button onClick={() => goals.length && setStep(3)} style={btnStyle(C.accent, !goals.length)}>Continue ({goals.length} selected) →</button>
+    </div>,
+
+    // Step 3 — Plan
+    <div key="3" style={{ padding:"20px 0" }}>
+      <div style={{ fontSize:26, fontWeight:800, fontFamily:FONT_DISPLAY, color:C.text, marginBottom:6 }}>Choose your plan</div>
+      <div style={{ color:C.sub, marginBottom:20, fontSize:14 }}>Upgrade anytime · Cancel anytime</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:24 }}>
+        {PLANS.map(p => (
+          <div key={p.id} onClick={() => setPlan(p.id)} style={{
+            background: plan===p.id ? p.color+"18" : C.card, border:`2px solid ${plan===p.id ? p.color : C.border}`,
+            borderRadius:18, padding:"16px 20px", cursor:"pointer", transition:"all .2s", position:"relative" }}>
+            {p.badge && <div style={{ position:"absolute", top:-10, right:16, background:p.color, color:"#fff",
+              fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:99, letterSpacing:.5 }}>{p.badge}</div>}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+              <div>
+                <div style={{ fontWeight:800, color:C.text, fontSize:16 }}>{p.label}</div>
+                <div style={{ color:C.sub, fontSize:12, marginTop:2 }}>{p.desc}</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginTop:8 }}>
+                  {p.features.map(f => <div key={f} style={{ fontSize:11, color:C.sub }}>✓ {f}</div>)}
+                </div>
+              </div>
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontSize:20, fontWeight:900, color:p.color, fontFamily:FONT_MONO }}>{p.price}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => plan && onDone({ name, goals, plan })} style={btnStyle(C.accent, !plan)}>
+        {plan === "free" ? "Start for Free →" : "Start 7-Day Free Trial →"}
+      </button>
+      <div style={{ textAlign:"center", marginTop:10, color:C.dim, fontSize:12 }}>No credit card required · Cancel anytime</div>
+    </div>,
+  ];
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", padding:"24px 20px", position:"relative", overflow:"hidden" }}>
+      <Glow color={C.accent} top={-100} left={-100} />
+      <Glow color={C.gold} top="60%" left="70%" size={250} op={0.05} />
+      <div style={{ width:"100%", maxWidth:480, position:"relative", zIndex:1 }}>
+        {step > 0 && (
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
+            <button onClick={() => setStep(s => s-1)} style={{ background:"none", border:"none", color:C.sub, cursor:"pointer", fontSize:14 }}>← Back</button>
+            <div style={{ display:"flex", gap:6 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ width: i<=step ? 24 : 6, height:6, borderRadius:99,
+                  background: i<=step ? C.accent : C.border, transition:"all .3s" }} />
+              ))}
+            </div>
+            <div style={{ width:40 }} />
+          </div>
+        )}
+        {steps[step]}
+      </div>
+    </div>
+  );
+}
+
+function btnStyle(color, disabled = false) {
+  return {
+    width:"100%", padding:"16px", background: disabled ? C.border : color,
+    border:"none", borderRadius:14, color:C.white, fontWeight:800, fontSize:16,
+    cursor: disabled ? "not-allowed" : "pointer", marginTop:8, fontFamily:FONT_BODY,
+    opacity: disabled ? 0.5 : 1, transition:"all .2s",
+    boxShadow: disabled ? "none" : `0 8px 30px ${color}44`,
+  };
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+const TABS = [
+  { id:"home", icon:"⚡", label:"Home" },
+  { id:"habits", icon:"🔥", label:"Habits" },
+  { id:"goals", icon:"🎯", label:"Goals" },
+  { id:"budget", icon:"💰", label:"Budget" },
+  { id:"time", icon:"⏱️", label:"Time" },
+  { id:"mood", icon:"🧠", label:"Mood" },
+  { id:"journal", icon:"📓", label:"Journal" },
+  { id:"social", icon:"🏆", label:"Social" },
+  { id:"ai", icon:"✨", label:"AI" },
+];
+
+// ─── HOME / DASHBOARD ─────────────────────────────────────────────────────────
+function Home({ user, habits, goals, budget, moodLog, timeCats }) {
+  const done = habits.filter(h=>h.done).length;
+  const topStreak = Math.max(...habits.map(h=>h.streak));
+  const savings = budget.income - budget.spent;
+  const avgMood = (moodLog.reduce((a,b)=>a+b,0)/moodLog.length).toFixed(1);
+  const topGoal = goals.reduce((a,b)=>(a.progress/a.target)>(b.progress/b.target)?a:b);
+  const topGoalPct = Math.round((topGoal.progress/topGoal.target)*100);
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const today = new Date().getDay();
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+      {/* Greeting */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div>
+          <div style={{ fontSize:24, fontWeight:900, fontFamily:FONT_DISPLAY, color:C.text, letterSpacing:-0.5 }}>
+            Good morning, {user?.name || "Champion"}! ☀️
+          </div>
+          <div style={{ color:C.sub, fontSize:13, marginTop:3 }}>
+            {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+          </div>
+        </div>
+        <div style={{ background:`linear-gradient(135deg,${C.accent},${C.gold})`,
+          width:44, height:44, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:22, boxShadow:`0 4px 20px ${C.accent}44` }}>⚡</div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
+        <StatChip icon="🔥" label="Today's Habits" val={`${done}/${habits.length}`} color={C.emerald} />
+        <StatChip icon="⚡" label="Best Streak" val={`${topStreak}d`} color={C.gold} />
+        <StatChip icon="🧠" label="Avg Mood" val={`${avgMood}/5`} color={C.accent} />
+        <StatChip icon="💵" label="Saved" val={`$${savings}`} color={C.emerald} />
+      </div>
+
+      {/* Weekly heatmap */}
+      <Card>
+        <div style={{ fontSize:13, fontWeight:700, color:C.sub, marginBottom:12, textTransform:"uppercase", letterSpacing:.5 }}>This Week</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {days.map((d,i) => {
+            const isToday = i === today;
+            const past = i < today;
+            const score = past ? Math.random() > 0.3 ? Math.floor(Math.random()*4+2) : 1 : (isToday ? done : 0);
+            const color = score >= 4 ? C.emerald : score >= 2 ? C.gold : score >= 1 ? C.accent : C.border;
+            return (
+              <div key={d} style={{ flex:1, textAlign:"center" }}>
+                <div style={{ fontSize:10, color: isToday ? C.accent : C.dim, marginBottom:6, fontWeight: isToday ? 700 : 400 }}>{d}</div>
+                <div style={{ height:36, borderRadius:10, background: past||isToday ? color+"44" : C.border,
+                  border:`1px solid ${past||isToday ? color : C.border}`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>
+                  {isToday ? "📍" : past ? (score >= 3 ? "✓" : "·") : ""}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Today's habits quick view */}
+      <Card>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <div style={{ fontWeight:700, color:C.text, fontSize:15 }}>Today's Habits</div>
+          <Tag color={done===habits.length ? C.emerald : C.accent}>{done}/{habits.length} done</Tag>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {habits.map(h => (
+            <div key={h.id} style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ fontSize:20, width:32, textAlign:"center" }}>{h.icon}</div>
+              <div style={{ flex:1, fontSize:13, color: h.done ? C.text : C.sub }}>{h.name}</div>
+              <div style={{ width:60, display:"flex", alignItems:"center", gap:4 }}>
+                <Bar value={h.done ? 1 : 0} max={1} color={h.color} h={4} />
+              </div>
+              <div style={{ fontSize:14 }}>{h.done ? "✅" : "⬜"}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Top Goal */}
+      <Card glow={topGoal.color}>
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+          <Ring pct={topGoalPct} color={topGoal.color}>{topGoalPct}%</Ring>
+          <div>
+            <div style={{ fontSize:12, color:C.sub, marginBottom:2 }}>Leading Goal</div>
+            <div style={{ fontWeight:800, color:C.text, fontSize:16 }}>{topGoal.icon} {topGoal.title}</div>
+            <div style={{ fontSize:12, color:topGoal.color, marginTop:4 }}>{topGoal.progress} / {topGoal.target} {topGoal.unit}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* AI insight */}
+      <div style={{ background:`linear-gradient(135deg,${C.accent}22,${C.gold}11)`,
+        border:`1px solid ${C.accent}33`, borderRadius:20, padding:"18px 20px" }}>
+        <div style={{ fontSize:12, color:C.accent, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:.5 }}>✨ AI Insight</div>
+        <div style={{ color:C.text, fontSize:14, lineHeight:1.6 }}>
+          Your water streak hits 20 days today 💧 That's top 5% of all users! One habit lagging: 
+          Meditation (3 days). Try stacking it right after workout for better consistency.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── HABITS ──────────────────────────────────────────────────────────────────
+function Habits({ habits, setHabits }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newH, setNewH] = useState({ name:"", icon:"⭐", cat:"Health" });
+  const ICONS = ["⭐","💪","📚","🧘","💧","🏃","🎯","🍎","💤","📵","✍️","🎨","🎵","🌱"];
+  const CATS = ["Health","Learning","Mind","Focus","Fitness","Finance","Other"];
+
+  const toggle = id => setHabits(prev => prev.map(h => h.id===id ? {
+    ...h, done:!h.done, streak: !h.done ? h.streak+1 : Math.max(0,h.streak-1)
+  } : h));
+
+  const add = () => {
+    if (!newH.name.trim()) return;
+    setHabits(prev => [...prev, { id:Date.now(), name:newH.name, icon:newH.icon,
+      cat:newH.cat, streak:0, done:false, color:C.accent, history:[] }]);
+    setNewH({ name:"", icon:"⭐", cat:"Health" });
+    setShowAdd(false);
+  };
+
+  const del = id => setHabits(prev => prev.filter(h=>h.id!==id));
+  const doneCount = habits.filter(h=>h.done).length;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
+        <SectionTitle sub={`${doneCount} of ${habits.length} completed today`}>Daily Habits 🔥</SectionTitle>
+        <button onClick={() => setShowAdd(true)} style={{ background:C.accent, border:"none",
+          borderRadius:12, padding:"8px 16px", color:"#fff", fontWeight:700, cursor:"pointer",
+          fontSize:13, fontFamily:FONT_BODY }}>+ New</button>
+      </div>
+
+      {/* Progress ring summary */}
+      <Card style={{ display:"flex", alignItems:"center", gap:16, padding:"16px 20px" }}>
+        <Ring pct={Math.round((doneCount/Math.max(habits.length,1))*100)} size={80} color={C.emerald}>
+          {Math.round((doneCount/Math.max(habits.length,1))*100)}%
+        </Ring>
+        <div>
+          <div style={{ fontWeight:800, color:C.text, fontSize:18 }}>{doneCount===habits.length ? "Perfect Day! 🎉" : `${habits.length-doneCount} left to go`}</div>
+          <div style={{ color:C.sub, fontSize:13 }}>Keep the momentum going</div>
+        </div>
+      </Card>
+
+      {showAdd && (
+        <Card glow={C.accent}>
+          <div style={{ fontWeight:700, color:C.text, marginBottom:14 }}>New Habit</div>
+          <input value={newH.name} onChange={e => setNewH(p=>({...p,name:e.target.value}))}
+            placeholder="Habit name (e.g. Morning run)..."
+            style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
+              padding:"11px 14px", color:C.text, fontSize:14, outline:"none",
+              fontFamily:FONT_BODY, boxSizing:"border-box", marginBottom:12 }} />
+          <div style={{ fontSize:12, color:C.sub, marginBottom:8 }}>Pick an icon</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+            {ICONS.map(em => (
+              <div key={em} onClick={() => setNewH(p=>({...p,icon:em}))} style={{
+                width:40, height:40, borderRadius:12,
+                background: newH.icon===em ? C.accent+"33" : C.card2,
+                border:`1px solid ${newH.icon===em ? C.accent : C.border}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", fontSize:20 }}>{em}</div>
+            ))}
+          </div>
+          <div style={{ fontSize:12, color:C.sub, marginBottom:8 }}>Category</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+            {CATS.map(c => <Pill key={c} active={newH.cat===c} onClick={()=>setNewH(p=>({...p,cat:c}))}>{c}</Pill>)}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={add} style={{ flex:1, background:C.accent, border:"none", borderRadius:12,
+              padding:"11px", color:"#fff", fontWeight:700, cursor:"pointer", fontFamily:FONT_BODY }}>Add Habit</button>
+            <button onClick={() => setShowAdd(false)} style={{ flex:1, background:C.card2,
+              border:`1px solid ${C.border}`, borderRadius:12, padding:"11px", color:C.sub,
+              cursor:"pointer", fontFamily:FONT_BODY }}>Cancel</button>
+          </div>
+        </Card>
+      )}
+
+      {habits.map(h => (
+        <div key={h.id} onClick={() => toggle(h.id)} style={{
+          background:C.card, border:`1px solid ${h.done ? h.color+"44" : C.border}`,
+          borderRadius:18, padding:"14px 18px", display:"flex", alignItems:"center",
+          gap:14, cursor:"pointer", transition:"all .2s",
+          boxShadow: h.done ? `0 0 24px ${h.color}22` : "none" }}>
+          <div style={{ width:48, height:48, borderRadius:14, background: h.done ? h.color+"44" : C.card2,
+            border:`1px solid ${h.done ? h.color : C.border}`,
+            display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>{h.icon}</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:700, color:C.text, fontSize:15 }}>{h.name}</div>
+            <div style={{ display:"flex", gap:8, marginTop:4, alignItems:"center" }}>
+              <Tag color={h.color}>{h.cat}</Tag>
+              <span style={{ fontSize:12, color:C.sub }}>🔥 {h.streak} day streak</span>
+            </div>
+            <div style={{ marginTop:8 }}>
+              <div style={{ display:"flex", gap:3 }}>
+                {(h.history||[]).slice(-14).map((v,i) => (
+                  <div key={i} style={{ width:10, height:10, borderRadius:3,
+                    background: v ? h.color : C.border }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0 }}>
+            <div style={{ width:30, height:30, borderRadius:9,
+              border:`2px solid ${h.done ? h.color : C.dim}`,
+              background: h.done ? h.color : "transparent",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              transition:"all .2s", fontSize:16 }}>{h.done ? "✓" : ""}</div>
+            <div onClick={e=>{e.stopPropagation();del(h.id)}} style={{ fontSize:11, color:C.dim, cursor:"pointer" }}>✕</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── GOALS ───────────────────────────────────────────────────────────────────
+function Goals({ goals, setGoals }) {
+  const [editing, setEditing] = useState(null);
+
+  const update = (id, delta) => setGoals(prev => prev.map(g => g.id===id ? {
+    ...g, progress: Math.min(g.target, Math.max(0, g.progress + delta))
+  } : g));
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <SectionTitle sub="Track what matters most">My Goals 🎯</SectionTitle>
+      <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
+        {["All","Finance","Fitness","Learning","Career"].map(c => (
+          <Pill key={c} active={c==="All"} color={C.accent}>{c}</Pill>
+        ))}
+      </div>
+      {goals.map(g => {
+        const pct = Math.round((g.progress/g.target)*100);
+        return (
+          <Card key={g.id} glow={pct===100 ? C.emerald : undefined}>
+            <div style={{ display:"flex", gap:14, alignItems:"flex-start", marginBottom:14 }}>
+              <Ring pct={pct} size={64} color={pct===100 ? C.emerald : g.color}>{pct}%</Ring>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", justifyContent:"space-between" }}>
+                  <div style={{ fontWeight:800, color:C.text, fontSize:16 }}>{g.icon} {g.title}</div>
+                  {pct===100 && <Tag color={C.emerald}>Done!</Tag>}
+                </div>
+                <div style={{ display:"flex", gap:8, marginTop:4 }}>
+                  <Tag color={g.color}>{g.cat}</Tag>
+                  <span style={{ fontSize:11, color:C.sub }}>Due {g.deadline}</span>
+                </div>
+              </div>
+            </div>
+            <Bar value={g.progress} max={g.target} color={pct===100 ? C.emerald : g.color} h={8} />
+            <div style={{ display:"flex", justifyContent:"space-between", marginTop:8 }}>
+              <span style={{ fontSize:12, color:C.sub }}>{g.progress} {g.unit}</span>
+              <span style={{ fontSize:12, color:C.sub }}>{g.target} {g.unit}</span>
+            </div>
+            <div style={{ display:"flex", gap:8, marginTop:14 }}>
+              {[1,5,10,25].map(d => (
+                <button key={d} onClick={() => update(g.id, d)} style={{
+                  flex:1, background:g.color+"22", border:`1px solid ${g.color}44`,
+                  borderRadius:10, padding:"8px 0", color:g.color, fontWeight:700,
+                  cursor:"pointer", fontSize:12, fontFamily:FONT_BODY }}>+{d}</button>
+              ))}
+              <button onClick={() => update(g.id, -1)} style={{
+                background:C.roseLo, border:`1px solid ${C.rose}44`,
+                borderRadius:10, padding:"8px 12px", color:C.rose, fontWeight:700,
+                cursor:"pointer", fontSize:12, fontFamily:FONT_BODY }}>-1</button>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── BUDGET ───────────────────────────────────────────────────────────────────
+function Budget({ budget }) {
+  const [view, setView] = useState("overview");
+  const remaining = budget.income - budget.spent;
+  const savingsPct = Math.round((remaining/budget.income)*100);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <SectionTitle sub="Your money, tracked">Budget 💰</SectionTitle>
+      <div style={{ display:"flex", gap:8 }}>
+        {["overview","transactions"].map(v => (
+          <Pill key={v} active={view===v} onClick={()=>setView(v)} color={C.gold}>
+            {v==="overview" ? "Overview" : "Transactions"}
+          </Pill>
+        ))}
+      </div>
+
+      {view==="overview" && <>
+        {/* Summary */}
+        <div style={{ display:"flex", gap:10 }}>
+          <StatChip icon="💵" label="Income" val={`$${budget.income.toLocaleString()}`} color={C.emerald} />
+          <StatChip icon="💸" label="Spent" val={`$${budget.spent.toLocaleString()}`} color={C.rose} />
+          <StatChip icon="🏦" label="Saved" val={`$${remaining}`} color={remaining>0?C.emerald:C.rose} />
+        </div>
+
+        {/* Big ring */}
+        <Card style={{ display:"flex", alignItems:"center", gap:20 }}>
+          <Ring pct={savingsPct} size={100} color={savingsPct>20?C.emerald:C.gold}>
+            {savingsPct}%
+          </Ring>
+          <div>
+            <div style={{ fontWeight:800, color:C.text, fontSize:17 }}>
+              {savingsPct>20 ? "Great savings rate! 🎉" : "Room to improve 💪"}
+            </div>
+            <div style={{ color:C.sub, fontSize:13, marginTop:4 }}>
+              ${remaining} left this month · {savingsPct}% saved
+            </div>
+          </div>
+        </Card>
+
+        {/* Categories */}
+        <Card>
+          <div style={{ fontWeight:700, color:C.text, marginBottom:14 }}>Spending Categories</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {budget.cats.map(cat => {
+              const over = cat.amount > cat.budget;
+              const pct = Math.min(100, (cat.amount/cat.budget)*100);
+              return (
+                <div key={cat.name}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                    <span style={{ color:C.text, fontSize:14 }}>{cat.icon} {cat.name}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color: over?C.rose:C.sub,
+                      fontFamily:FONT_MONO }}>${cat.amount}<span style={{ color:C.dim, fontWeight:400 }}>/${cat.budget}</span></span>
+                  </div>
+                  <Bar value={cat.amount} max={cat.budget} color={over?C.rose:cat.color} h={6} />
+                  {over && <div style={{ fontSize:11, color:C.rose, marginTop:4 }}>⚠️ ${cat.amount-cat.budget} over budget</div>}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </>}
+
+      {view==="transactions" && (
+        <Card>
+          <div style={{ fontWeight:700, color:C.text, marginBottom:14 }}>Recent Transactions</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+            {budget.txns.map((t, i) => (
+              <div key={t.id} style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 0",
+                borderBottom: i<budget.txns.length-1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ width:42, height:42, borderRadius:13, background:t.amount>0?C.emeraldLo:C.roseLo,
+                  border:`1px solid ${t.amount>0?C.emerald:C.rose}33`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>{t.icon}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ color:C.text, fontWeight:600, fontSize:14 }}>{t.label}</div>
+                  <div style={{ color:C.sub, fontSize:12 }}>{t.cat} · {t.date}</div>
+                </div>
+                <div style={{ fontWeight:800, fontFamily:FONT_MONO, fontSize:15,
+                  color: t.amount>0 ? C.emerald : C.text }}>
+                  {t.amount>0?"+":""}{t.amount.toFixed(2)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── TIME TRACKER ─────────────────────────────────────────────────────────────
+function TimeTracker({ timeCats }) {
+  const [running, setRunning] = useState(null);
+  const [seconds, setSeconds] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const intRef = useRef(null);
+  const total = timeCats.reduce((a,b)=>a+b.minutes,0);
+
+  const startStop = () => {
+    if (!selected) return;
+    if (running) {
+      clearInterval(intRef.current);
+      setRunning(null);
+    } else {
+      setRunning(selected);
+      intRef.current = setInterval(() => setSeconds(s=>s+1), 1000);
+    }
+  };
+  useEffect(() => () => clearInterval(intRef.current), []);
+  const fmt = s => `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <SectionTitle sub="Know where your time goes">Time Tracker ⏱️</SectionTitle>
+
+      {/* Timer */}
+      <Card glow={running ? (timeCats.find(t=>t.name===running)?.color) : undefined}>
+        <div style={{ textAlign:"center", padding:"8px 0" }}>
+          <div style={{ fontSize:48, fontFamily:FONT_MONO, fontWeight:900, color:C.text, letterSpacing:-2 }}>{fmt(seconds)}</div>
+          <div style={{ color:C.sub, fontSize:13, marginTop:4, marginBottom:16 }}>
+            {running ? `Tracking: ${running}` : "Select a category to start"}
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginBottom:16 }}>
+            {timeCats.map(cat => (
+              <Pill key={cat.name} active={selected===cat.name} onClick={()=>!running&&setSelected(cat.name)} color={cat.color}>
+                {cat.icon} {cat.name}
+              </Pill>
+            ))}
+          </div>
+          <button onClick={startStop} style={{
+            background: running ? C.rose : selected ? C.emerald : C.border,
+            border:"none", borderRadius:14, padding:"14px 40px", color:"#fff",
+            fontWeight:800, fontSize:16, cursor: selected?"pointer":"not-allowed",
+            fontFamily:FONT_BODY, boxShadow: running?`0 4px 20px ${C.rose}44`:selected?`0 4px 20px ${C.emerald}44`:"none",
+          }}>{running ? "⏹ Stop" : "▶ Start"}</button>
+        </div>
+      </Card>
+
+      {/* Today's breakdown */}
+      <Card>
+        <div style={{ fontWeight:700, color:C.text, marginBottom:14 }}>Today's Breakdown · {Math.floor(total/60)}h {total%60}m</div>
+        <div style={{ display:"flex", height:14, borderRadius:99, overflow:"hidden", marginBottom:16 }}>
+          {timeCats.map(cat => (
+            <div key={cat.name} style={{ width:`${(cat.minutes/total)*100}%`, background:cat.color, transition:"width .5s" }} />
+          ))}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {timeCats.map(cat => (
+            <div key={cat.name} style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ fontSize:20, width:28, textAlign:"center" }}>{cat.icon}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontSize:13, color:C.text }}>{cat.name}</span>
+                  <span style={{ fontSize:12, color:C.sub, fontFamily:FONT_MONO }}>{Math.floor(cat.minutes/60)}h {cat.minutes%60}m</span>
+                </div>
+                <Bar value={cat.minutes} max={total} color={cat.color} h={5} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── MOOD ──────────────────────────────────────────────────────────────────────
+function Mood({ moodLog, setMoodLog }) {
+  const [todayMood, setTodayMood] = useState(null);
+  const [note, setNote] = useState("");
+  const avg = (moodLog.reduce((a,b)=>a+b,0)/moodLog.length).toFixed(1);
+  const trend = moodLog[moodLog.length-1] - moodLog[moodLog.length-7];
+
+  const logMood = (v) => {
+    setTodayMood(v);
+    setMoodLog(prev => [...prev.slice(-13), v]);
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <SectionTitle sub="Your emotional health matters">Mood Tracker 🧠</SectionTitle>
+
+      <div style={{ display:"flex", gap:10 }}>
+        <StatChip icon="📊" label="14-day avg" val={`${avg}/5`} color={C.accent} />
+        <StatChip icon={trend>=0?"📈":"📉"} label="7-day trend" val={trend>=0?`+${trend}`:trend} color={trend>=0?C.emerald:C.rose} />
+        <StatChip icon="🔥" label="Log streak" val="14d" color={C.gold} />
+      </div>
+
+      <Card>
+        <div style={{ fontWeight:700, color:C.text, marginBottom:4 }}>How are you feeling today?</div>
+        <div style={{ color:C.sub, fontSize:13, marginBottom:16 }}>Tap to log your mood</div>
+        <div style={{ display:"flex", gap:10, justifyContent:"space-between", marginBottom:16 }}>
+          {MOOD_OPT.map(m => (
+            <div key={m.v} onClick={() => logMood(m.v)} style={{
+              flex:1, borderRadius:16, background: todayMood===m.v ? m.color+"33" : C.card2,
+              border:`2px solid ${todayMood===m.v ? m.color : C.border}`,
+              padding:"12px 4px", textAlign:"center", cursor:"pointer",
+              transition:"all .2s", transform: todayMood===m.v ? "scale(1.08)" : "scale(1)" }}>
+              <div style={{ fontSize:26 }}>{m.emoji}</div>
+              <div style={{ fontSize:10, color: todayMood===m.v ? m.color : C.dim, marginTop:4 }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+        {todayMood && <>
+          <textarea value={note} onChange={e=>setNote(e.target.value)}
+            placeholder="Add a note about your day... (optional)"
+            rows={3} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:12, padding:"11px 14px", color:C.text, fontSize:13,
+              outline:"none", fontFamily:FONT_BODY, boxSizing:"border-box", resize:"none", marginTop:4 }} />
+          <div style={{ marginTop:8, color:C.emerald, fontSize:13, fontWeight:600 }}>✓ Mood logged for today!</div>
+        </>}
+      </Card>
+
+      <Card>
+        <div style={{ fontWeight:700, color:C.text, marginBottom:14 }}>14-Day History</div>
+        <div style={{ display:"flex", gap:6, alignItems:"flex-end", height:90 }}>
+          {moodLog.map((m,i) => {
+            const obj = MOOD_OPT.find(o=>o.v===m);
+            return (
+              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <div style={{ fontSize:14 }}>{obj?.emoji}</div>
+                <div style={{ width:"100%", height:m*14, background:obj?.color, borderRadius:6, opacity:.8 }} />
+                <div style={{ fontSize:8, color:C.dim }}>{i+1}</div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── JOURNAL ──────────────────────────────────────────────────────────────────
+function Journal() {
+  const [entries, setEntries] = useState([
+    { id:1, date:"Apr 5", text:"Had a great workout today. Feeling energised and ready to tackle my goals.", mood:"😊", tags:["Fitness","Motivation"] },
+    { id:2, date:"Apr 4", text:"Struggled to focus in the afternoon. Need to work on my environment.", mood:"😐", tags:["Focus","Reflection"] },
+  ]);
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [prompt] = useState(JOURNAL_PROMPTS[Math.floor(Math.random()*JOURNAL_PROMPTS.length)]);
+
+  const save = () => {
+    if (!draft.trim()) return;
+    setEntries(prev => [{ id:Date.now(), date:"Today", text:draft, mood:"😊", tags:["Personal"] }, ...prev]);
+    setDraft("");
+    setWriting(false);
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
+        <SectionTitle sub={`${entries.length} entries`}>Journal 📓</SectionTitle>
+        <button onClick={() => setWriting(true)} style={{ background:C.accent, border:"none",
+          borderRadius:12, padding:"8px 16px", color:"#fff", fontWeight:700,
+          cursor:"pointer", fontSize:13, fontFamily:FONT_BODY }}>+ Write</button>
+      </div>
+
+      {writing && (
+        <Card glow={C.accent}>
+          <div style={{ background:C.accentLo, borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:13, color:C.accent }}>
+            💡 Prompt: <em>{prompt}</em>
+          </div>
+          <textarea value={draft} onChange={e=>setDraft(e.target.value)}
+            placeholder="Write freely, this is your private space..."
+            rows={6} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:12, padding:"12px 14px", color:C.text, fontSize:14,
+              outline:"none", fontFamily:FONT_BODY, boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+          <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            <button onClick={save} style={{ flex:1, background:C.accent, border:"none",
+              borderRadius:12, padding:"11px", color:"#fff", fontWeight:700,
+              cursor:"pointer", fontFamily:FONT_BODY }}>Save Entry</button>
+            <button onClick={()=>{setWriting(false);setDraft("")}} style={{ flex:1, background:C.card2,
+              border:`1px solid ${C.border}`, borderRadius:12, padding:"11px",
+              color:C.sub, cursor:"pointer", fontFamily:FONT_BODY }}>Cancel</button>
+          </div>
+        </Card>
+      )}
+
+      {entries.map(e => (
+        <Card key={e.id}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <div style={{ fontSize:22 }}>{e.mood}</div>
+              <div style={{ color:C.sub, fontSize:12 }}>{e.date}</div>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              {e.tags.map(t => <Tag key={t} color={C.accent}>{t}</Tag>)}
+            </div>
+          </div>
+          <div style={{ color:C.text, fontSize:14, lineHeight:1.7 }}>{e.text}</div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// ─── SOCIAL LEADERBOARD ───────────────────────────────────────────────────────
+function Social() {
+  const medals = ["🥇","🥈","🥉"];
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <SectionTitle sub="Compete, inspire, achieve together">Leaderboard 🏆</SectionTitle>
+
+      <div style={{ display:"flex", gap:8 }}>
+        {["Global","Friends","This Week"].map((t,i) => (
+          <Pill key={t} active={i===0} color={C.gold}>{t}</Pill>
+        ))}
+      </div>
+
+      {/* Top 3 podium */}
+      <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+        {[LEADERBOARD[1], LEADERBOARD[0], LEADERBOARD[2]].map((u,i) => {
+          const heights = [80,100,64];
+          const cols = [C.sub, C.gold, C.accent];
+          return (
+            <div key={u.rank} style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:20, marginBottom:4 }}>{u.avatar}</div>
+              <div style={{ fontSize:12, color:C.text, fontWeight:700, marginBottom:4 }}>{u.name}</div>
+              <div style={{ height:heights[i], background:cols[i]+"22", border:`1px solid ${cols[i]}44`,
+                borderRadius:"12px 12px 0 0", display:"flex", alignItems:"flex-start",
+                justifyContent:"center", paddingTop:8, fontSize:20 }}>{medals[i]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Full list */}
+      <Card>
+        {LEADERBOARD.map((u,i) => (
+          <div key={u.rank} style={{
+            display:"flex", alignItems:"center", gap:14,
+            padding: u.isYou ? "12px 20px" : "12px 0",
+            margin: u.isYou ? "0 -20px" : "0",
+            borderBottom: i<LEADERBOARD.length-1 ? `1px solid ${C.border}` : "none",
+            background: u.isYou ? C.accentLo : "transparent",
+            borderRadius: u.isYou ? 12 : 0,
+          }}>
+            <div style={{ fontWeight:900, fontFamily:FONT_MONO, color: u.rank<=3?C.gold:C.dim, width:20 }}>#{u.rank}</div>
+            <div style={{ width:42, height:42, borderRadius:13, background:C.card2,
+              border:`1px solid ${u.isYou ? C.accent : C.border}`,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>{u.avatar}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:700, color: u.isYou ? C.accent : C.text, fontSize:15 }}>
+                {u.name} {u.isYou && <Tag color={C.accent}>You</Tag>}
+              </div>
+              <div style={{ fontSize:12, color:C.sub }}>🔥 {u.streak} day streak</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontWeight:900, fontFamily:FONT_MONO, color:C.text, fontSize:16 }}>{u.score.toLocaleString()}</div>
+              <div style={{ fontSize:12, color:C.sub }}>pts · {u.badge}</div>
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      <Card style={{ background:`linear-gradient(135deg,${C.gold}18,${C.accent}18)`, border:`1px solid ${C.gold}33` }}>
+        <div style={{ fontWeight:800, color:C.text, marginBottom:6 }}>🚀 Climb the ranks!</div>
+        <div style={{ color:C.sub, fontSize:13, lineHeight:1.6 }}>
+          Complete all your habits today to earn 50 bonus points and jump 2 places on the leaderboard.
+        </div>
+        <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
+          {["Complete 5 habits: +50pts","7-day streak: +100pts","Hit a goal: +200pts"].map(t => (
+            <div key={t} style={{ fontSize:11, color:C.gold, background:C.goldLo,
+              border:`1px solid ${C.gold}33`, borderRadius:99, padding:"4px 10px" }}>{t}</div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── AI COACH ─────────────────────────────────────────────────────────────────
+function AICoach({ user, habits, goals, budget }) {
+  const [msgs, setMsgs] = useState([
+    { role:"assistant", text:`Hey ${user?.name||"there"}! 👋 I'm your personal AI Life Coach. I can see all your data — habits, goals, budget, mood. Ask me anything and I'll give you real, personalised advice. What's on your mind?` }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [suggested] = useState(["How can I improve my habits?","Analyse my budget","What should I focus on this week?","I'm feeling unmotivated"]);
+  const endRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
+
+  const doneHabits = habits.filter(h=>h.done).map(h=>h.name).join(", ");
+  const topStreak = Math.max(...habits.map(h=>h.streak));
+  const savings = budget.income - budget.spent;
+
+  const system = `You are an expert AI Life Coach inside the LifeGrid app. Be warm, motivating, specific, and actionable. Use emojis. Keep responses to 4-6 sentences max.
+
+User: ${user?.name||"Champion"} | Goals focus: ${user?.goals?.join(", ")||"general"}
+
+LIVE DATA:
+- Habits today: ${doneHabits||"none done yet"} (${habits.filter(h=>h.done).length}/${habits.length} complete)
+- Best streak: ${topStreak} days
+- Goals: ${goals.map(g=>`${g.title} ${Math.round((g.progress/g.target)*100)}%`).join(", ")}
+- Budget: Income $${budget.income}, Spent $${budget.spent}, Saved $${savings}
+- Over budget: ${budget.cats.filter(c=>c.amount>c.budget).map(c=>c.name).join(", ")||"none"}
+
+Reference their actual data. Be their best coach, not a generic chatbot.`;
+
+  const send = async (text) => {
+    const msg = text || input.trim();
+    if (!msg || loading) return;
+    setInput("");
+    const userMsgs = [...msgs, { role:"user", text:msg }];
+    setMsgs(userMsgs);
+    setLoading(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system,
+          messages: userMsgs.slice(1).map(m=>({ role:m.role, content:m.text }))
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.map(b=>b.text||"").join("") || "Try asking me about your habits, goals or budget!";
+      setMsgs(prev => [...prev, { role:"assistant", text:reply }]);
+    } catch {
+      setMsgs(prev => [...prev, { role:"assistant", text:"Connection issue — please try again!" }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+      <SectionTitle sub="Powered by Claude · Knows your data">AI Life Coach ✨</SectionTitle>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
+        {suggested.map(s => (
+          <div key={s} onClick={() => send(s)} style={{ fontSize:12, color:C.accent, background:C.accentLo,
+            border:`1px solid ${C.accentMid}`, borderRadius:99, padding:"6px 12px", cursor:"pointer" }}>{s}</div>
+        ))}
+      </div>
+      <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:10, minHeight:0, marginBottom:14 }}>
+        {msgs.map((m,i) => (
+          <div key={i} style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
+            {m.role==="assistant" && (
+              <div style={{ width:30, height:30, borderRadius:9, background:`linear-gradient(135deg,${C.accent},${C.gold})`,
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
+                marginRight:8, flexShrink:0, alignSelf:"flex-end" }}>✨</div>
+            )}
+            <div style={{ maxWidth:"80%", padding:"12px 16px",
+              borderRadius: m.role==="user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+              background: m.role==="user" ? C.accent : C.card,
+              border:`1px solid ${m.role==="user" ? C.accent : C.border}`,
+              color:C.text, fontSize:14, lineHeight:1.6 }}>{m.text}</div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display:"flex" }}>
+            <div style={{ width:30, height:30, borderRadius:9, background:`linear-gradient(135deg,${C.accent},${C.gold})`,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, marginRight:8 }}>✨</div>
+            <div style={{ padding:"12px 16px", background:C.card, border:`1px solid ${C.border}`,
+              borderRadius:"18px 18px 18px 4px", color:C.sub, fontSize:14 }}>Thinking...</div>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+      <div style={{ display:"flex", gap:10 }}>
+        <input value={input} onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&send()}
+          placeholder="Ask your AI coach anything..."
+          style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+            padding:"13px 16px", color:C.text, fontSize:14, outline:"none", fontFamily:FONT_BODY }} />
+        <button onClick={()=>send()} disabled={loading} style={{
+          background:C.accent, border:"none", borderRadius:14, padding:"13px 20px",
+          color:"#fff", fontWeight:800, cursor:"pointer", fontSize:18,
+          opacity:loading?.6:1, boxShadow:`0 4px 20px ${C.accent}44` }}>→</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── PWA INSTALL BANNER ───────────────────────────────────────────────────────
+function InstallBanner({ onDismiss }) {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const device = isIOS ? "iPhone/iPad" : isAndroid ? "Android" : "your device";
+  const instruction = isIOS
+    ? "Tap the Share button then \"Add to Home Screen\""
+    : "Tap the menu then \"Add to Home Screen\"";
+  return (
+    <div style={{
+      position:"fixed", bottom:90, left:12, right:12, zIndex:999,
+      background:`linear-gradient(135deg,${C.accent},#9b5de5)`,
+      borderRadius:20, padding:"16px 18px",
+      boxShadow:`0 8px 40px ${C.accent}66`,
+    }}>
+      <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+        <div style={{ fontSize:36, flexShrink:0 }}>📲</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:800, color:"#fff", fontSize:15, marginBottom:4 }}>
+            Install LifeGrid on {device}
+          </div>
+          <div style={{ color:"rgba(255,255,255,0.85)", fontSize:13, lineHeight:1.5 }}>
+            {instruction} — works like a real app, no App Store needed!
+          </div>
+        </div>
+        <div onClick={onDismiss} style={{ color:"rgba(255,255,255,0.7)", cursor:"pointer", fontSize:20, padding:4 }}>✕</div>
+      </div>
+    </div>
+  );
+}
+
+function OfflineBanner() {
+  return (
+    <div style={{
+      position:"fixed", top:0, left:0, right:0, zIndex:9999,
+      background:C.rose, color:"#fff", textAlign:"center",
+      padding:"10px", fontSize:13, fontWeight:600,
+    }}>
+      You are offline — your data is saved locally
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  // ── localStorage helpers ──
+  const load = (key, fallback) => {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } 
+    catch { return fallback; }
+  };
+  const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+  const [user, setUser] = useState(() => load('lg_user', null));
+  const [tab, setTab] = useState("home");
+  const [habits, setHabits] = useState(() => load('lg_habits', INIT_HABITS));
+  const [goals, setGoals] = useState(() => load('lg_goals', INIT_GOALS));
+  const [moodLog, setMoodLog] = useState(() => load('lg_mood', MOOD_HISTORY));
+  const [timeCats] = useState(TIME_CATS);
+  const [showInstall, setShowInstall] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  // ── Auto-save whenever data changes ──
+  useEffect(() => { save('lg_user', user); }, [user]);
+  useEffect(() => { save('lg_habits', habits); }, [habits]);
+  useEffect(() => { save('lg_goals', goals); }, [goals]);
+  useEffect(() => { save('lg_mood', moodLog); }, [moodLog]);
+
+  // ── Reset habits done=false each new day ──
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const lastReset = localStorage.getItem('lg_last_reset');
+    if (lastReset !== today) {
+      setHabits(prev => prev.map(h => ({ ...h, done: false })));
+      localStorage.setItem('lg_last_reset', today);
+    }
+  }, []);
+
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline  = () => setIsOffline(false);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online",  goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  useEffect(() => {
+    const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const dismissed = sessionStorage.getItem("lgInstallDismissed");
+    if (isMobile && !isStandalone && !dismissed) {
+      const t = setTimeout(() => setShowInstall(true), 8000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const dismissInstall = () => {
+    setShowInstall(false);
+    sessionStorage.setItem("lgInstallDismissed","1");
+  };
+
+  if (!user) return <Onboarding onDone={(u) => { save('lg_user', u); setUser(u); }} />;
+
+  const CONTENT = {
+    home: <Home user={user} habits={habits} goals={goals} budget={INIT_BUDGET} moodLog={moodLog} timeCats={timeCats} />,
+    habits: <Habits habits={habits} setHabits={setHabits} />,
+    goals: <Goals goals={goals} setGoals={setGoals} />,
+    budget: <Budget budget={INIT_BUDGET} />,
+    time: <TimeTracker timeCats={timeCats} />,
+    mood: <Mood moodLog={moodLog} setMoodLog={setMoodLog} />,
+    journal: <Journal />,
+    social: <Social />,
+    ai: <AICoach user={user} habits={habits} goals={goals} budget={INIT_BUDGET} />,
+  };
+
+  return (
+    <div style={{ background:C.bg, minHeight:"100vh", color:C.text, fontFamily:FONT_BODY, position:"relative", overflow:"hidden" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet" />
+
+      {/* ── Offline notice ── */}
+      {isOffline && <OfflineBanner />}
+
+      {/* ── Install prompt (iOS / Android manual) ── */}
+      {showInstall && <InstallBanner onDismiss={dismissInstall} />}
+
+      {/* ── Android native install button (Chrome beforeinstallprompt) ── */}
+      {deferredPrompt && (
+        <div style={{ position:"fixed", bottom:90, left:12, right:12, zIndex:998,
+          background:`linear-gradient(135deg,${C.emerald},${C.sky})`,
+          borderRadius:20, padding:"14px 18px", display:"flex", alignItems:"center",
+          gap:14, boxShadow:`0 8px 40px ${C.emerald}55` }}>
+          <div style={{ fontSize:30 }}>📲</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:800, color:"#fff", fontSize:14 }}>Install LifeGrid</div>
+            <div style={{ color:"rgba(255,255,255,.8)", fontSize:12 }}>Add to your home screen — works offline!</div>
+          </div>
+          <button onClick={async () => {
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+            setDeferredPrompt(null);
+          }} style={{ background:"#fff", border:"none", borderRadius:10, padding:"8px 14px",
+            fontWeight:800, color:C.emerald, cursor:"pointer", fontSize:13 }}>Install</button>
+          <div onClick={() => setDeferredPrompt(null)} style={{ color:"rgba(255,255,255,.7)", cursor:"pointer", fontSize:18 }}>✕</div>
+        </div>
+      )}
+
+      <Glow color={C.accent} top={-120} left={-120} size={400} />
+      <Glow color={C.gold} top="50%" left="70%" size={280} op={0.04} />
+
+      {/* Header */}
+      <div style={{ background:`${C.surface}f2`, backdropFilter:"blur(20px)",
+        borderBottom:`1px solid ${C.border}`, padding:"14px 20px",
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        position:"sticky", top:0, zIndex:200 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:36, height:36, borderRadius:11,
+            background:`linear-gradient(135deg,${C.accent},${C.gold})`,
+            display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⚡</div>
+          <div>
+            <div style={{ fontWeight:900, fontSize:17, fontFamily:FONT_DISPLAY, letterSpacing:-.5 }}>LifeGrid</div>
+            <div style={{ fontSize:9, color:C.dim, marginTop:-2 }}>YOUR LIFE. TRACKED.</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <div style={{ background:C.accentLo, border:`1px solid ${C.accentMid}`,
+            borderRadius:99, padding:"4px 12px", fontSize:11, color:C.accent, fontWeight:700 }}>PRO ✨</div>
+          <div style={{ width:36, height:36, borderRadius:11, background:C.card,
+            border:`1px solid ${C.border}`, display:"flex", alignItems:"center",
+            justifyContent:"center", fontSize:16 }}>
+            {user.name?.[0]?.toUpperCase()||"👤"}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ padding:"20px 16px 110px", maxWidth:600, margin:"0 auto",
+        position:"relative", zIndex:1,
+        ...(tab==="ai" ? { height:"calc(100vh - 140px)", display:"flex", flexDirection:"column" } : {}) }}>
+        {CONTENT[tab]}
+      </div>
+
+      {/* Bottom Nav */}
+      <div style={{ position:"fixed", bottom:0, left:0, right:0,
+        background:`${C.surface}f5`, backdropFilter:"blur(20px)",
+        borderTop:`1px solid ${C.border}`, zIndex:200,
+        padding:"6px 4px 20px" }}>
+        <div style={{ display:"flex", justifyContent:"space-around", maxWidth:600, margin:"0 auto" }}>
+          {TABS.map(t => (
+            <div key={t.id} onClick={() => setTab(t.id)} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"6px 8px", borderRadius:14, cursor:"pointer", transition:"all .2s",
+              background: tab===t.id ? C.accentLo : "transparent",
+              border: `1px solid ${tab===t.id ? C.accentMid : "transparent"}`,
+              minWidth:48 }}>
+              <div style={{ fontSize:18 }}>{t.icon}</div>
+              <div style={{ fontSize:9, color: tab===t.id ? C.accent : C.dim,
+                fontWeight: tab===t.id ? 700 : 400 }}>{t.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── Empty state components ──
+function EmptyHabits({ onAdd }) {
+  return (
+    <div style={{ textAlign:"center", padding:"48px 20px" }}>
+      <div style={{ fontSize:56, marginBottom:16 }}>🌱</div>
+      <div style={{ fontSize:20, fontWeight:800, color:"#eeeef5", marginBottom:8 }}>No habits yet</div>
+      <div style={{ color:"#9090b0", fontSize:14, marginBottom:24, lineHeight:1.6 }}>
+        Start small. Pick one habit you want to build.<br/>Even 1 habit tracked consistently changes your life.
+      </div>
+      <button onClick={onAdd} style={{ background:"#6c63ff", border:"none", borderRadius:14,
+        padding:"14px 32px", color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer" }}>
+        + Add Your First Habit
+      </button>
+    </div>
+  );
+}
+
+function EmptyGoals({ onAdd }) {
+  return (
+    <div style={{ textAlign:"center", padding:"48px 20px" }}>
+      <div style={{ fontSize:56, marginBottom:16 }}>🎯</div>
+      <div style={{ fontSize:20, fontWeight:800, color:"#eeeef5", marginBottom:8 }}>No goals set</div>
+      <div style={{ color:"#9090b0", fontSize:14, marginBottom:24, lineHeight:1.6 }}>
+        A goal without a plan is just a wish.<br/>Add your first goal and start tracking progress today.
+      </div>
+      <button onClick={onAdd} style={{ background:"#6c63ff", border:"none", borderRadius:14,
+        padding:"14px 32px", color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer" }}>
+        + Set Your First Goal
+      </button>
+    </div>
+  );
+}
+
+// Mount
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
