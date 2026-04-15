@@ -9,12 +9,60 @@
 <title>LifeGrid — Your Life. Tracked.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet"/>
-<style>
+
+  <!-- Google Analytics — replace G-XXXXXXXXXX with your real ID from analytics.google.com -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+
+    // Custom event tracking helpers
+    window.track = function(event, params) {
+      if(typeof gtag !== 'undefined') {
+        gtag('event', event, params || {});
+      }
+      // Also log to console for debugging
+      console.log('[Track]', event, params);
+    };
+  </script>
+
+  <!-- Simple visitor counter using free countapi -->
+  <script>
+    // Count unique visits
+    fetch('https://api.countapi.xyz/hit/lyftracking.netlify.app/visits')
+      .then(r => r.json())
+      .then(d => { window._visitorCount = d.value; })
+      .catch(()=>{});
+  </script>
+
+  <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#060608;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
 #root{height:100%}
-input,textarea,button{font-family:inherit}
+input,textarea,button,select{font-family:inherit}
 ::-webkit-scrollbar{width:0;background:transparent}
+select option{background:#16161f;color:#eeeef5}
+
+/* Page transitions */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes confetti{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(60px) rotate(360deg);opacity:0}}
+
+.page-enter{animation:fadeUp .3s cubic-bezier(.4,0,.2,1) forwards}
+.card-pop{animation:popIn .25s cubic-bezier(.4,0,.2,1) forwards}
+.slide-down{animation:slideDown .25s ease forwards}
+.pulse{animation:pulse 2s ease infinite}
+
+/* Tap highlight for mobile */
+button,div[onClick],div[onclick]{-webkit-tap-highlight-color:transparent}
+
+/* Better inputs */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.5;cursor:pointer}
 </style>
 </head>
 <body>
@@ -282,12 +330,17 @@ function Home({user,habits,goals,moodLog,setTab}){
   const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const today=new Date().getDay();
 
+  const hour=new Date().getHours();
+  const greet=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+  const greetEmoji=hour<12?"☀️":hour<17?"⚡":"🌙";
+  const bestStreakHabit=habits.length>0?habits.reduce((a,b)=>a.streak>b.streak?a:b):null;
+
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+    <div style={{display:"flex",flexDirection:"column",gap:18}} className="page-enter">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <div style={{fontSize:22,fontWeight:900,fontFamily:FD,color:C.text,letterSpacing:-.5}}>
-            Hey, {user.name}! ☀️
+            {greet}, {user.name}! {greetEmoji}
           </div>
           <div style={{color:C.sub,fontSize:13,marginTop:2}}>
             {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
@@ -351,6 +404,19 @@ function Home({user,habits,goals,moodLog,setTab}){
         </Card>
       )}
 
+      {/* Quick plan tomorrow button */}
+      <div onClick={()=>setTab("planner")}
+        style={{background:C.card,border:`1px solid ${C.gold}33`,borderRadius:16,
+          padding:"13px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+          transition:"all .2s"}}>
+        <div style={{fontSize:28}}>🌅</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,color:C.text,fontSize:14}}>Plan Tomorrow</div>
+          <div style={{color:C.sub,fontSize:12,marginTop:2}}>Prepare tonight for a productive day</div>
+        </div>
+        <div style={{color:C.gold,fontSize:18}}>→</div>
+      </div>
+
       {topGoal&&(
         <Card glow={topGoal.color}>
           <div style={{display:"flex",alignItems:"center",gap:14}}>
@@ -369,12 +435,18 @@ function Home({user,habits,goals,moodLog,setTab}){
         <div style={{fontSize:11,color:C.accent,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:.5}}>✨ AI Insight</div>
         <div style={{color:C.text,fontSize:13,lineHeight:1.7}}>
           {done===habits.length&&habits.length>0
-            ? `Perfect day ${user.name}! All ${habits.length} habits done 🎉 You're building unstoppable momentum.`
+            ? `Perfect day ${user.name}! All ${habits.length} habits done 🎉 You are building unstoppable momentum.`
             : habits.length===0
             ? `Welcome ${user.name}! Start by adding one small habit. Consistency beats perfection every time. 💪`
-            : `${done} of ${habits.length} habits done today. Every habit you tick builds your future self. Keep going! 🚀`
+            : `${done} of ${habits.length} habits done today. Every single tick builds your future self. Keep going! 🚀`
           }
         </div>
+        {bestStreakHabit&&bestStreakHabit.streak>=7&&(
+          <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.accent}22`,
+            fontSize:12,color:C.gold}}>
+            🔥 {bestStreakHabit.name} — {bestStreakHabit.streak} day streak! You are in the top 10% of users.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -399,7 +471,7 @@ function Habits({habits,setHabits}){
   };
 
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"flex",flexDirection:"column",gap:16}} className="page-enter">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,fontFamily:FD,color:C.text}}>Daily Habits 🔥</div>
@@ -1212,142 +1284,166 @@ function Settings({user,onReset}){
   );
 }
 
-// ── PLANNER + CALENDAR ──────────────────────────────────────────────────────
-// Full-featured day planner with calendar view, task scheduling,
-// evening reminders, priorities, repeats and completion tracking.
 
+// ── PLANNER + CALENDAR (v3 — smart repeats, date ranges, UX polish) ─────────
 function Planner(){
-  const [tasks,setTasks]=useState(()=>store.get("lg_tasks",[]));
-  const [view,setView]=useState("today"); // today | tomorrow | calendar | upcoming
-  const [showAdd,setShowAdd]=useState(false);
-  const [selectedDate,setSelectedDate]=useState(null); // for calendar click
-  const [calMonth,setCalMonth]=useState(new Date());
-  const [notifAsked,setNotifAsked]=useState(false);
+  const [tasks,setTasks]   = useState(()=>store.get("lg_tasks",[]));
+  const [view,setView]     = useState("today");
+  const [showAdd,setShowAdd]= useState(false);
+  const [editTask,setEditTask]= useState(null);   // task being edited
+  const [selectedDate,setSelectedDate]= useState(null);
+  const [calMonth,setCalMonth]= useState(new Date());
+  const [filterCat,setFilterCat]= useState("All");
+  const [filterPri,setFilterPri]= useState("All");
 
-  // Task form state
-  const [fTitle,setFTitle]=useState("");
-  const [fDate,setFDate]=useState(toISO(new Date()));
-  const [fTime,setFTime]=useState("09:00");
-  const [fPriority,setFPriority]=useState("medium");
-  const [fRepeat,setFRepeat]=useState("none");
-  const [fNotes,setFNotes]=useState("");
-  const [fCat,setFCat]=useState("Personal");
+  // ── form fields ──
+  const blankForm={title:"",startDate:toISO(new Date()),endDate:"",time:"09:00",
+    priority:"medium",repeat:"none",cat:"Personal",notes:""};
+  const [form,setForm]=useState(blankForm);
+  const F=(k,v)=>setForm(p=>({...p,[k]:v}));
 
   useEffect(()=>{ store.set("lg_tasks",tasks); },[tasks]);
 
-  // ── helpers ──
+  // ── date helpers ──
   function toISO(d){ return d.toISOString().split("T")[0]; }
   function todayISO(){ return toISO(new Date()); }
   function tomorrowISO(){ const d=new Date(); d.setDate(d.getDate()+1); return toISO(d); }
+  function addDays(iso,n){ const d=new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return toISO(d); }
+  function dayOfWeek(iso){ return new Date(iso+"T00:00:00").getDay(); } // 0=Sun
+  function daysUntil(iso){ return Math.round((new Date(iso+"T00:00:00")-new Date(todayISO()+"T00:00:00"))/86400000); }
   function fmtDate(iso){
-    const d=new Date(iso+"T00:00:00");
-    const today=todayISO(), tomorrow=tomorrowISO();
-    if(iso===today) return "Today";
-    if(iso===tomorrow) return "Tomorrow";
-    return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
-  }
-  function isPast(iso){ return iso<todayISO(); }
-  function daysUntil(iso){
-    const diff=new Date(iso+"T00:00:00")-new Date(todayISO()+"T00:00:00");
-    return Math.round(diff/86400000);
+    const du=daysUntil(iso);
+    if(du===0) return "Today"; if(du===1) return "Tomorrow"; if(du===-1) return "Yesterday";
+    return new Date(iso+"T00:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
   }
 
-  const PRIORITIES={
-    high:{label:"High",color:"#f43f5e",icon:"🔴"},
-    medium:{label:"Medium",color:"#fbbf24",icon:"🟡"},
-    low:{label:"Low",color:"#10b981",icon:"🟢"},
+  // ── REPEAT ENGINE ─────────────────────────────────────────────────────────
+  // For a base task, generate the ISO dates it should appear on
+  // within a 90-day window from today.
+  function getOccurrences(task){
+    if(task.repeat==="none") return [task.startDate];
+    const start=task.startDate;
+    const end=task.endDate||addDays(todayISO(),90);
+    const cap=addDays(todayISO(),90);
+    const until=end<cap?end:cap;
+    const dates=[];
+    let cur=start;
+    while(cur<=until){
+      const dow=dayOfWeek(cur);
+      const include=
+        task.repeat==="daily"   ? true :
+        task.repeat==="weekdays"? dow>=1&&dow<=5 :
+        task.repeat==="weekly"  ? cur===start||((new Date(cur+"T00:00:00")-new Date(start+"T00:00:00"))%(7*86400000)===0) :
+        task.repeat==="monthly" ? new Date(cur+"T00:00:00").getDate()===new Date(start+"T00:00:00").getDate() :
+        task.repeat==="range"   ? true : false;
+      if(include) dates.push(cur);
+      cur=addDays(cur,1);
+    }
+    return dates;
+  }
+
+  // Returns all "virtual" task instances for a given ISO date
+  function getTasksForDate(iso){
+    const result=[];
+    tasks.forEach(t=>{
+      const occs=getOccurrences(t);
+      if(occs.includes(iso)){
+        // Completion is stored per date: doneOn:{iso:true}
+        const done=t.doneOn?.[iso]||false;
+        result.push({...t,occDate:iso,done});
+      }
+    });
+    return result.sort((a,b)=>a.time.localeCompare(b.time));
+  }
+
+  // Toggle done for a specific occurrence
+  const toggleTask=(id,iso)=>setTasks(prev=>prev.map(t=>{
+    if(t.id!==id) return t;
+    const doneOn={...(t.doneOn||{}),[iso]:!(t.doneOn?.[iso])};
+    return {...t,doneOn};
+  }));
+
+  const delTask=id=>{ if(window.confirm("Delete this task and all its repeats?")) setTasks(prev=>prev.filter(t=>t.id!==id)); };
+
+  // ── save (add or edit) ──
+  const saveTask=()=>{
+    if(!form.title.trim()) return;
+    if(editTask){
+      setTasks(prev=>prev.map(t=>t.id===editTask.id?{...t,...form,id:t.id,doneOn:t.doneOn||{}}:t));
+      setEditTask(null);
+    } else {
+      setTasks(prev=>[...prev,{...form,id:Date.now(),doneOn:{}}]);
+    }
+    setForm(blankForm); setShowAdd(false);
   };
-  const CATS=["Personal","Work","Health","Finance","Learning","Home","Social","Other"];
-  const REPEATS=[
-    {id:"none",label:"No repeat"},
-    {id:"daily",label:"Every day"},
-    {id:"weekly",label:"Every week"},
-    {id:"weekdays",label:"Weekdays only"},
-    {id:"monthly",label:"Every month"},
-  ];
-  const CAT_ICONS={"Personal":"👤","Work":"💼","Health":"💊","Finance":"💰","Learning":"📚","Home":"🏠","Social":"👥","Other":"📌"};
 
-  // ── add task ──
-  const addTask=()=>{
-    if(!fTitle.trim()) return;
-    const t={
-      id:Date.now(),
-      title:fTitle.trim(),
-      date:fDate,
-      time:fTime,
-      priority:fPriority,
-      repeat:fRepeat,
-      notes:fNotes.trim(),
-      cat:fCat,
-      done:false,
-      createdAt:todayISO(),
-    };
-    setTasks(prev=>[...prev,t]);
-    setFTitle("");setFDate(toISO(new Date()));setFTime("09:00");
-    setFPriority("medium");setFRepeat("none");setFNotes("");setFCat("Personal");
-    setShowAdd(false);
-  };
+  const openEdit=(t)=>{ setForm({title:t.title,startDate:t.startDate,endDate:t.endDate||"",
+    time:t.time,priority:t.priority,repeat:t.repeat,cat:t.cat,notes:t.notes});
+    setEditTask(t); setShowAdd(true); };
 
-  const toggleTask=id=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:!t.done}:t));
-  const delTask=id=>{ if(window.confirm("Delete this task?")) setTasks(prev=>prev.filter(t=>t.id!==id)); };
-
-  // ── notification request ──
+  // ── notifications ──
   const askNotif=()=>{
-    if("Notification" in window && Notification.permission==="default"){
+    if("Notification" in window&&Notification.permission==="default"){
       Notification.requestPermission().then(p=>{
-        if(p==="granted") scheduleEveningReminder();
-        setNotifAsked(true);
+        if(p==="granted") showTomorrowNotif();
       });
     }
   };
-
-  const scheduleEveningReminder=()=>{
-    // Show what's scheduled for tomorrow at 9pm
-    const tomorrow=tomorrowISO();
-    const tomorrowTasks=tasks.filter(t=>t.date===tomorrow&&!t.done);
-    if(tomorrowTasks.length===0) return;
-    const now=new Date();
-    const tonight9pm=new Date(now.getFullYear(),now.getMonth(),now.getDate(),21,0,0);
-    const msUntil=tonight9pm-now;
-    if(msUntil>0&&msUntil<86400000){
-      setTimeout(()=>{
-        new Notification("LifeGrid — Plan for Tomorrow 🌙",{
-          body:`You have ${tomorrowTasks.length} task${tomorrowTasks.length>1?"s":""} planned for tomorrow. Ready to crush it!`,
-          icon:"/favicon.ico",
-        });
-      },msUntil);
-    }
+  const showTomorrowNotif=()=>{
+    const tm=getTasksForDate(tomorrowISO()).filter(t=>!t.done);
+    if(!tm.length) return;
+    const now=new Date(), nine=new Date(now.getFullYear(),now.getMonth(),now.getDate(),21,0,0);
+    const ms=nine-now;
+    if(ms>0&&ms<86400000) setTimeout(()=>{
+      new Notification("LifeGrid 🌙 Plan for tomorrow",{
+        body:`${tm.length} task${tm.length>1?"s":""} tomorrow: ${tm.slice(0,2).map(t=>t.title).join(", ")}${tm.length>2?"...":""}`
+      });
+    },ms);
   };
+  useEffect(()=>{ if("Notification" in window&&Notification.permission==="granted") showTomorrowNotif(); },[tasks]);
 
-  useEffect(()=>{
-    if("Notification" in window && Notification.permission==="granted"){
-      scheduleEveningReminder();
-    }
-  },[tasks]);
+  // ── filter helpers ──
+  function applyFilters(list){
+    return list.filter(t=>(filterCat==="All"||t.cat===filterCat)&&(filterPri==="All"||t.priority===filterPri));
+  }
 
-  // ── filter tasks for current view ──
-  const getViewTasks=()=>{
-    const today=todayISO(), tomorrow=tomorrowISO();
-    if(view==="today") return tasks.filter(t=>t.date===today).sort((a,b)=>a.time.localeCompare(b.time));
-    if(view==="tomorrow") return tasks.filter(t=>t.date===tomorrow).sort((a,b)=>a.time.localeCompare(b.time));
-    if(view==="calendar"&&selectedDate) return tasks.filter(t=>t.date===selectedDate).sort((a,b)=>a.time.localeCompare(b.time));
-    if(view==="upcoming"){
-      return tasks.filter(t=>t.date>=today).sort((a,b)=>t=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
-    }
-    return [];
+  const PRIORITIES={
+    high:{label:"High",color:C.rose,icon:"🔴"},
+    medium:{label:"Medium",color:C.gold,icon:"🟡"},
+    low:{label:"Low",color:C.green,icon:"🟢"},
   };
+  const CATS=["Personal","Work","Health","Finance","Learning","Home","Social","Other"];
+  const CAT_ICONS={"Personal":"👤","Work":"💼","Health":"💊","Finance":"💰","Learning":"📚","Home":"🏠","Social":"👥","Other":"📌"};
+  const REPEATS=[
+    {id:"none",label:"Does not repeat"},
+    {id:"daily",label:"Every day"},
+    {id:"weekdays",label:"Weekdays (Mon–Fri)"},
+    {id:"weekly",label:"Every week"},
+    {id:"monthly",label:"Every month"},
+    {id:"range",label:"Date range (every day between)"},
+  ];
 
-  // ── upcoming sorted ──
-  const upcomingTasks=()=>{
-    const today=todayISO();
-    return [...tasks].filter(t=>t.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
-  };
+  const today=todayISO(), tomorrow=tomorrowISO();
+  const todayTasks=applyFilters(getTasksForDate(today));
+  const tomorrowTasks=applyFilters(getTasksForDate(tomorrow));
+  const todayPending=todayTasks.filter(t=>!t.done).length;
+  const tomorrowPending=tomorrowTasks.filter(t=>!t.done).length;
+
+  // upcoming: next 30 days grouped by date
+  function getUpcoming(){
+    const grouped={};
+    for(let i=0;i<30;i++){
+      const iso=addDays(today,i);
+      const list=applyFilters(getTasksForDate(iso));
+      if(list.length>0) grouped[iso]=list;
+    }
+    return grouped;
+  }
 
   // ── calendar helpers ──
   function calDays(){
-    const year=calMonth.getFullYear(), month=calMonth.getMonth();
-    const first=new Date(year,month,1).getDay();
-    const total=new Date(year,month+1,0).getDate();
+    const y=calMonth.getFullYear(),m=calMonth.getMonth();
+    const first=new Date(y,m,1).getDay(), total=new Date(y,m+1,0).getDate();
     const days=[];
     for(let i=0;i<first;i++) days.push(null);
     for(let d=1;d<=total;d++) days.push(d);
@@ -1355,145 +1451,184 @@ function Planner(){
   }
   function calISO(d){
     if(!d) return null;
-    const y=calMonth.getFullYear(), m=String(calMonth.getMonth()+1).padStart(2,"0"), dd=String(d).padStart(2,"0");
-    return `${y}-${m}-${dd}`;
+    return `${calMonth.getFullYear()}-${String(calMonth.getMonth()+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   }
-  function tasksOnDay(iso){ return iso?tasks.filter(t=>t.date===iso):[];}
 
-  const viewTasks=view==="upcoming"?upcomingTasks():getViewTasks();
-  const today=todayISO(), tomorrow=tomorrowISO();
-  const todayCount=tasks.filter(t=>t.date===today&&!t.done).length;
-  const tomorrowCount=tasks.filter(t=>t.date===tomorrow&&!t.done).length;
+  // ── sub-components ──
 
-  // ── Add form ──
-  const AddForm=()=>(
-    <Card glow={C.accent} style={{marginBottom:0}}>
-      <div style={{fontWeight:700,color:C.text,marginBottom:14,fontSize:15}}>📝 New Task</div>
-
-      <input value={fTitle} onChange={e=>setFTitle(e.target.value)} placeholder="What do you need to do?" autoFocus
-        style={{width:"100%",background:C.surface,border:`1px solid ${fTitle?C.accent:C.border}`,borderRadius:12,
-          padding:"12px 14px",color:C.text,fontSize:14,outline:"none",marginBottom:10}}/>
-
-      <div style={{display:"flex",gap:10,marginBottom:10}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:11,color:C.sub,marginBottom:5}}>📅 Date</div>
-          <input type="date" value={fDate} onChange={e=>setFDate(e.target.value)}
-            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
-              padding:"9px 12px",color:C.text,fontSize:13,outline:"none",colorScheme:"dark"}}/>
-        </div>
-        <div style={{flex:1}}>
-          <div style={{fontSize:11,color:C.sub,marginBottom:5}}>🕐 Time</div>
-          <input type="time" value={fTime} onChange={e=>setFTime(e.target.value)}
-            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
-              padding:"9px 12px",color:C.text,fontSize:13,outline:"none",colorScheme:"dark"}}/>
-        </div>
-      </div>
-
-      <div style={{fontSize:11,color:C.sub,marginBottom:6}}>🎯 Priority</div>
-      <div style={{display:"flex",gap:8,marginBottom:10}}>
-        {Object.entries(PRIORITIES).map(([k,p])=>(
-          <div key={k} onClick={()=>setFPriority(k)}
-            style={{flex:1,padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",
-              background:fPriority===k?p.color+"22":C.card2,
-              border:`1px solid ${fPriority===k?p.color:C.border}`,
-              color:fPriority===k?p.color:C.sub,fontWeight:600,fontSize:12,userSelect:"none"}}>
-            {p.icon} {p.label}
-          </div>
-        ))}
-      </div>
-
-      <div style={{display:"flex",gap:10,marginBottom:10}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:11,color:C.sub,marginBottom:5}}>📁 Category</div>
-          <select value={fCat} onChange={e=>setFCat(e.target.value)}
-            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
-              padding:"9px 12px",color:C.text,fontSize:13,outline:"none"}}>
-            {CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]} {c}</option>)}
-          </select>
-        </div>
-        <div style={{flex:1}}>
-          <div style={{fontSize:11,color:C.sub,marginBottom:5}}>🔁 Repeat</div>
-          <select value={fRepeat} onChange={e=>setFRepeat(e.target.value)}
-            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
-              padding:"9px 12px",color:C.text,fontSize:13,outline:"none"}}>
-            {REPEATS.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <textarea value={fNotes} onChange={e=>setFNotes(e.target.value)} rows={2}
-        placeholder="Add notes or details... (optional)"
-        style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
-          padding:"9px 12px",color:C.text,fontSize:13,outline:"none",resize:"none",marginBottom:12}}/>
-
-      <div style={{display:"flex",gap:8}}>
-        <Btn onClick={addTask} disabled={!fTitle.trim()} style={{flex:1}}>Add Task</Btn>
-        <Btn onClick={()=>{setShowAdd(false);setFTitle("");}} color={C.border} style={{flex:1,color:C.sub,boxShadow:"none"}}>Cancel</Btn>
-      </div>
-    </Card>
-  );
-
-  // ── Task card ──
-  const TaskCard=({t})=>{
+  const TaskCard=({t,onToggle,onEdit,onDelete})=>{
     const p=PRIORITIES[t.priority]||PRIORITIES.medium;
-    const du=daysUntil(t.date);
+    const du=daysUntil(t.occDate||t.startDate);
     const overdue=du<0&&!t.done;
     return(
-      <div style={{background:C.card,border:`1px solid ${t.done?"#ffffff11":overdue?C.rose+"44":p.color+"33"}`,
-        borderRadius:16,padding:"13px 15px",transition:"all .2s",
-        opacity:t.done?0.55:1,
-        boxShadow:!t.done&&!overdue?`0 2px 12px ${p.color}18`:"none"}}>
+      <div style={{background:C.card,border:`1px solid ${t.done?"#ffffff0a":overdue?C.rose+"55":p.color+"33"}`,
+        borderRadius:16,padding:"13px 15px",transition:"all .2s",opacity:t.done?0.5:1,
+        boxShadow:!t.done&&!overdue?`0 2px 14px ${p.color}14`:"none"}}>
         <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
-          <div onClick={()=>toggleTask(t.id)}
-            style={{width:24,height:24,borderRadius:7,flexShrink:0,marginTop:1,
-              border:`2px solid ${t.done?C.green:p.color}`,
-              background:t.done?C.green:"transparent",
+          {/* Checkbox */}
+          <div onClick={onToggle}
+            style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:1,
+              border:`2px solid ${t.done?C.green:p.color}`,background:t.done?C.green:"transparent",
               display:"flex",alignItems:"center",justifyContent:"center",
-              cursor:"pointer",transition:"all .2s",fontSize:13,color:"#fff",fontWeight:900}}>
+              cursor:"pointer",transition:"all .2s",color:"#fff",fontSize:14,fontWeight:900}}>
             {t.done?"✓":""}
           </div>
+          {/* Content */}
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:700,color:t.done?C.sub:C.text,fontSize:14,
               textDecoration:t.done?"line-through":"none",lineHeight:1.4}}>{t.title}</div>
+            {/* Meta row */}
             <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap",alignItems:"center"}}>
               <span style={{fontSize:11,color:C.sub}}>🕐 {t.time}</span>
-              <span style={{fontSize:11,color:overdue?C.rose:du===0?C.green:du===1?C.gold:C.sub,fontWeight:overdue?700:400}}>
-                {overdue?`⚠️ ${Math.abs(du)}d overdue`:du===0?"Today":du===1?"Tomorrow":`In ${du}d`}
-              </span>
-              {t.repeat!=="none"&&<span style={{fontSize:11,color:C.accent}}>🔁 {REPEATS.find(r=>r.id===t.repeat)?.label}</span>}
+              {t.repeat!=="none"&&(
+                <span style={{fontSize:11,color:C.accent}}>🔁 {REPEATS.find(r=>r.id===t.repeat)?.label||t.repeat}</span>
+              )}
+              {overdue&&<span style={{fontSize:11,color:C.rose,fontWeight:700}}>⚠️ {Math.abs(du)}d overdue</span>}
+              {t.endDate&&t.repeat==="range"&&<span style={{fontSize:11,color:C.sky}}>📅 Until {fmtDate(t.endDate)}</span>}
             </div>
+            {/* Tags */}
             <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
               <span style={{fontSize:10,fontWeight:700,color:p.color,background:p.color+"18",
                 border:`1px solid ${p.color}33`,borderRadius:99,padding:"2px 7px"}}>{p.icon} {p.label}</span>
               <span style={{fontSize:10,fontWeight:700,color:C.sub,background:C.card2,
                 border:`1px solid ${C.border}`,borderRadius:99,padding:"2px 7px"}}>{CAT_ICONS[t.cat]} {t.cat}</span>
             </div>
-            {t.notes&&<div style={{color:C.sub,fontSize:12,marginTop:6,lineHeight:1.5,
+            {t.notes&&<div style={{color:C.sub,fontSize:12,marginTop:7,lineHeight:1.5,
               background:C.surface,borderRadius:8,padding:"6px 10px"}}>{t.notes}</div>}
           </div>
-          <div onClick={()=>delTask(t.id)}
-            style={{color:C.dim,cursor:"pointer",fontSize:16,flexShrink:0,padding:4}}>✕</div>
+          {/* Actions */}
+          <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+            <div onClick={onEdit} style={{color:C.accent,cursor:"pointer",fontSize:14,padding:"2px 4px"}}>✎</div>
+            <div onClick={onDelete} style={{color:C.dim,cursor:"pointer",fontSize:14,padding:"2px 4px"}}>✕</div>
+          </div>
         </div>
       </div>
     );
   };
 
-  // ── Calendar view ──
+  const AddEditForm=()=>(
+    <Card glow={C.accent}>
+      <div style={{fontWeight:800,color:C.text,marginBottom:14,fontSize:15}}>
+        {editTask?"✎ Edit Task":"📝 New Task"}
+      </div>
+
+      <input value={form.title} onChange={e=>F("title",e.target.value)}
+        placeholder="What do you need to do?" autoFocus
+        style={{width:"100%",background:C.surface,border:`1px solid ${form.title?C.accent:C.border}`,
+          borderRadius:12,padding:"12px 14px",color:C.text,fontSize:14,outline:"none",marginBottom:10}}/>
+
+      {/* Dates row */}
+      <div style={{display:"flex",gap:10,marginBottom:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,color:C.sub,marginBottom:4}}>
+            {form.repeat==="range"?"📅 Start Date":"📅 Date"}
+          </div>
+          <input type="date" value={form.startDate} onChange={e=>F("startDate",e.target.value)}
+            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
+              padding:"9px 12px",color:C.text,fontSize:13,outline:"none",colorScheme:"dark"}}/>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,color:C.sub,marginBottom:4}}>🕐 Time</div>
+          <input type="time" value={form.time} onChange={e=>F("time",e.target.value)}
+            style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
+              padding:"9px 12px",color:C.text,fontSize:13,outline:"none",colorScheme:"dark"}}/>
+        </div>
+      </div>
+
+      {/* Repeat */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:C.sub,marginBottom:4}}>🔁 Repeat</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {REPEATS.map(r=>(
+            <div key={r.id} onClick={()=>F("repeat",r.id)}
+              style={{padding:"6px 12px",borderRadius:99,cursor:"pointer",fontSize:12,fontWeight:600,
+                background:form.repeat===r.id?C.accentLo:C.card2,
+                color:form.repeat===r.id?C.accent:C.sub,
+                border:`1px solid ${form.repeat===r.id?C.accent:C.border}`,userSelect:"none"}}>
+              {r.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* End date — show for range or any repeat */}
+      {(form.repeat==="range"||form.repeat!=="none")&&(
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:C.sub,marginBottom:4}}>
+            {form.repeat==="range"?"📅 End Date (task runs every day until here)":"📅 Repeat Until (optional)"}
+          </div>
+          <input type="date" value={form.endDate} onChange={e=>F("endDate",e.target.value)}
+            min={form.startDate}
+            style={{width:"100%",background:C.surface,border:`1px solid ${form.endDate?C.accent:C.border}`,
+              borderRadius:10,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",colorScheme:"dark"}}/>
+          {form.endDate&&<div style={{fontSize:11,color:C.accent,marginTop:4}}>
+            ✓ Task will appear on every matching day from {fmtDate(form.startDate)} to {fmtDate(form.endDate)}
+          </div>}
+        </div>
+      )}
+
+      {/* Priority */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:C.sub,marginBottom:4}}>🎯 Priority</div>
+        <div style={{display:"flex",gap:8}}>
+          {Object.entries(PRIORITIES).map(([k,p])=>(
+            <div key={k} onClick={()=>F("priority",k)}
+              style={{flex:1,padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",
+                background:form.priority===k?p.color+"22":C.card2,
+                border:`1px solid ${form.priority===k?p.color:C.border}`,
+                color:form.priority===k?p.color:C.sub,fontWeight:600,fontSize:12,userSelect:"none"}}>
+              {p.icon} {p.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Category */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:C.sub,marginBottom:4}}>📁 Category</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {CATS.map(c=>(
+            <div key={c} onClick={()=>F("cat",c)}
+              style={{padding:"6px 12px",borderRadius:99,cursor:"pointer",fontSize:12,fontWeight:600,
+                background:form.cat===c?C.accentLo:C.card2,
+                color:form.cat===c?C.accent:C.sub,
+                border:`1px solid ${form.cat===c?C.accent:C.border}`,userSelect:"none"}}>
+              {CAT_ICONS[c]} {c}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <textarea value={form.notes} onChange={e=>F("notes",e.target.value)} rows={2}
+        placeholder="Notes or details... (optional)"
+        style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,
+          padding:"9px 12px",color:C.text,fontSize:13,outline:"none",resize:"none",marginBottom:12}}/>
+
+      <div style={{display:"flex",gap:8}}>
+        <Btn onClick={saveTask} disabled={!form.title.trim()} style={{flex:1}}>
+          {editTask?"Save Changes":"Add Task"}
+        </Btn>
+        <Btn onClick={()=>{setShowAdd(false);setEditTask(null);setForm(blankForm);}}
+          color={C.border} style={{flex:1,color:C.sub,boxShadow:"none"}}>Cancel</Btn>
+      </div>
+    </Card>
+  );
+
   const CalendarView=()=>{
     const days=calDays();
     const DOW=["Su","Mo","Tu","We","Th","Fr","Sa"];
-    const monthName=calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
-    const prevMonth=()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1));
-    const nextMonth=()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1));
-
     return(
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <button onClick={prevMonth} style={{background:C.card2,border:`1px solid ${C.border}`,
-            borderRadius:10,padding:"7px 14px",color:C.text,cursor:"pointer",fontSize:14}}>‹</button>
-          <div style={{fontWeight:800,color:C.text,fontSize:15}}>{monthName}</div>
-          <button onClick={nextMonth} style={{background:C.card2,border:`1px solid ${C.border}`,
-            borderRadius:10,padding:"7px 14px",color:C.text,cursor:"pointer",fontSize:14}}>›</button>
+          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))}
+            style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,
+              padding:"7px 14px",color:C.text,cursor:"pointer",fontSize:14}}>‹</button>
+          <div style={{fontWeight:800,color:C.text,fontSize:15}}>
+            {calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"})}
+          </div>
+          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))}
+            style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,
+              padding:"7px 14px",color:C.text,cursor:"pointer",fontSize:14}}>›</button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:14}}>
           {DOW.map(d=>(
@@ -1501,25 +1636,25 @@ function Planner(){
           ))}
           {days.map((d,i)=>{
             const iso=calISO(d);
-            const isToday=iso===todayISO();
-            const isSel=iso===selectedDate;
-            const count=tasksOnDay(iso).length;
-            const doneCount=tasksOnDay(iso).filter(t=>t.done).length;
-            const hasTask=count>0;
+            const isToday=iso===today, isSel=iso===selectedDate;
+            const dayTasks=iso?getTasksForDate(iso):[];
+            const pending=dayTasks.filter(t=>!t.done).length;
+            const done=dayTasks.filter(t=>t.done).length;
+            const hasTasks=dayTasks.length>0;
             return(
-              <div key={i} onClick={()=>{ if(d){ setSelectedDate(iso); } }}
+              <div key={i} onClick={()=>d&&setSelectedDate(iso)}
                 style={{aspectRatio:"1",borderRadius:10,display:"flex",flexDirection:"column",
                   alignItems:"center",justifyContent:"center",cursor:d?"pointer":"default",
-                  background:isSel?C.accent:isToday?C.accentLo:hasTask?C.card2:"transparent",
-                  border:`1px solid ${isSel?C.accent:isToday?C.accent+"66":hasTask?C.border:"transparent"}`,
+                  background:isSel?C.accent:isToday?C.accentLo:hasTasks?C.card2:"transparent",
+                  border:`1px solid ${isSel?C.accent:isToday?C.accent+"66":hasTasks?C.border:"transparent"}`,
                   transition:"all .15s"}}>
                 {d&&<>
                   <div style={{fontSize:13,fontWeight:isToday||isSel?800:400,
                     color:isSel?"#fff":isToday?C.accent:C.text}}>{d}</div>
-                  {hasTask&&(
+                  {hasTasks&&(
                     <div style={{display:"flex",gap:2,marginTop:2}}>
-                      {count-doneCount>0&&<div style={{width:5,height:5,borderRadius:"50%",background:C.gold}}/>}
-                      {doneCount>0&&<div style={{width:5,height:5,borderRadius:"50%",background:C.green}}/>}
+                      {pending>0&&<div style={{width:5,height:5,borderRadius:"50%",background:C.gold}}/>}
+                      {done>0&&<div style={{width:5,height:5,borderRadius:"50%",background:C.green}}/>}
                     </div>
                   )}
                 </>}
@@ -1529,147 +1664,202 @@ function Planner(){
         </div>
         {selectedDate&&(
           <div>
-            <div style={{fontWeight:700,color:C.text,marginBottom:10,fontSize:14}}>
-              {fmtDate(selectedDate)} · {tasksOnDay(selectedDate).length} tasks
-            </div>
-            {tasksOnDay(selectedDate).length===0?(
-              <div style={{textAlign:"center",padding:"20px 0",color:C.sub,fontSize:14}}>
-                No tasks on this day.
-                <div onClick={()=>{ setFDate(selectedDate); setShowAdd(true); }}
-                  style={{color:C.accent,cursor:"pointer",marginTop:8,fontWeight:600}}>+ Add a task</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontWeight:700,color:C.text,fontSize:14}}>
+                {fmtDate(selectedDate)} · {getTasksForDate(selectedDate).length} tasks
               </div>
+              <div onClick={()=>{F("startDate",selectedDate);setShowAdd(true);}}
+                style={{color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>+ Add</div>
+            </div>
+            {getTasksForDate(selectedDate).length===0?(
+              <div style={{textAlign:"center",padding:"16px 0",color:C.sub,fontSize:14}}>No tasks — tap + Add to plan this day</div>
             ):(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {tasksOnDay(selectedDate).sort((a,b)=>a.time.localeCompare(b.time)).map(t=><TaskCard key={t.id} t={t}/>)}
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {getTasksForDate(selectedDate).map(t=>(
+                  <TaskCard key={t.id+t.occDate} t={t}
+                    onToggle={()=>toggleTask(t.id,t.occDate)}
+                    onEdit={()=>openEdit(t)}
+                    onDelete={()=>delTask(t.id)}/>
+                ))}
               </div>
             )}
           </div>
         )}
-        {!selectedDate&&(
-          <div style={{textAlign:"center",padding:"12px 0",color:C.sub,fontSize:13}}>Tap a date to see tasks</div>
-        )}
+        {!selectedDate&&<div style={{textAlign:"center",padding:"10px 0",color:C.dim,fontSize:13}}>Tap any date to see or add tasks</div>}
       </div>
     );
   };
 
-  // ── Evening reminder banner ──
-  const showReminderBanner=!notifAsked&&"Notification" in window&&Notification.permission==="default"&&tomorrowCount>0;
+  // ── Filters bar ──
+  const Filters=()=>(
+    <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:2}}>
+      {["All",...CATS].map(c=>(
+        <div key={c} onClick={()=>setFilterCat(c)}
+          style={{padding:"5px 12px",borderRadius:99,cursor:"pointer",fontSize:12,fontWeight:600,
+            background:filterCat===c?C.accentLo:C.card2,color:filterCat===c?C.accent:C.sub,
+            border:`1px solid ${filterCat===c?C.accent:C.border}`,userSelect:"none",whiteSpace:"nowrap",flexShrink:0}}>
+          {c==="All"?"All":CAT_ICONS[c]+" "+c}
+        </div>
+      ))}
+    </div>
+  );
+
+  // ── main render ──
+  const upcoming=getUpcoming();
+  const totalTasks=tasks.length;
+  const totalDoneToday=todayTasks.filter(t=>t.done).length;
 
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,fontFamily:FD,color:C.text}}>Planner 📅</div>
           <div style={{fontSize:13,color:C.sub,marginTop:2}}>Plan your days, own your time</div>
         </div>
-        <button onClick={()=>{ setShowAdd(true); setFDate(view==="tomorrow"?tomorrowISO():view==="calendar"&&selectedDate?selectedDate:todayISO()); }}
-          style={{background:C.accent,border:"none",borderRadius:12,padding:"8px 16px",
-            color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>+ Task</button>
+        <button onClick={()=>{
+            setEditTask(null);
+            setForm({...blankForm,startDate:view==="tomorrow"?tomorrow:view==="calendar"&&selectedDate?selectedDate:today});
+            setShowAdd(true);
+          }}
+          style={{background:C.accent,border:"none",borderRadius:12,padding:"9px 18px",
+            color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,
+            boxShadow:`0 4px 16px ${C.accent}44`}}>+ Task</button>
       </div>
 
-      {/* Evening reminder banner */}
-      {showReminderBanner&&(
-        <div style={{background:`linear-gradient(135deg,${C.accent}22,${C.gold}18)`,
-          border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 16px",
+      {/* Evening reminder nudge */}
+      {"Notification" in window&&Notification.permission==="default"&&tomorrowPending>0&&(
+        <div style={{background:`linear-gradient(135deg,${C.accent}18,${C.gold}12)`,
+          border:`1px solid ${C.accent}33`,borderRadius:14,padding:"12px 14px",
           display:"flex",alignItems:"center",gap:12}}>
-          <div style={{fontSize:28,flexShrink:0}}>🌙</div>
+          <div style={{fontSize:24}}>🌙</div>
           <div style={{flex:1}}>
-            <div style={{fontWeight:700,color:C.text,fontSize:14}}>Enable evening reminders</div>
-            <div style={{color:C.sub,fontSize:12,marginTop:2}}>
-              Get a 9pm notification with tomorrow's tasks so you are always prepared.
-            </div>
+            <div style={{fontWeight:700,color:C.text,fontSize:13}}>Get evening reminders</div>
+            <div style={{color:C.sub,fontSize:12}}>9pm nudge with tomorrow's {tomorrowPending} tasks</div>
           </div>
           <button onClick={askNotif}
-            style={{background:C.accent,border:"none",borderRadius:10,padding:"8px 14px",
+            style={{background:C.accent,border:"none",borderRadius:9,padding:"7px 12px",
               color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",flexShrink:0}}>Enable</button>
         </div>
       )}
 
       {/* Stats */}
       <div style={{display:"flex",gap:10}}>
-        <Stat icon="📋" label="Today" val={tasks.filter(t=>t.date===todayISO()).length} color={C.accent}/>
-        <Stat icon="✅" label="Done today" val={tasks.filter(t=>t.date===todayISO()&&t.done).length} color={C.green}/>
-        <Stat icon="📅" label="Tomorrow" val={tomorrowCount} color={C.gold}/>
+        <Stat icon="📋" label="Today's tasks" val={todayTasks.length} color={C.accent}/>
+        <Stat icon="✅" label="Done today" val={totalDoneToday} color={C.green}/>
+        <Stat icon="🌅" label="Tomorrow" val={tomorrowPending} color={C.gold}/>
       </div>
 
       {/* View tabs */}
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:2}}>
         {[
-          {id:"today",label:"Today",badge:todayCount>0?todayCount:null},
-          {id:"tomorrow",label:"Tomorrow",badge:tomorrowCount>0?tomorrowCount:null},
+          {id:"today",label:"Today",badge:todayPending},
+          {id:"tomorrow",label:"Tomorrow",badge:tomorrowPending},
           {id:"upcoming",label:"Upcoming"},
           {id:"calendar",label:"📅 Calendar"},
         ].map(v=>(
           <div key={v.id} onClick={()=>setView(v.id)}
             style={{padding:"7px 14px",borderRadius:99,cursor:"pointer",fontWeight:600,fontSize:13,
-              background:view===v.id?C.accent+"22":C.card2,
-              color:view===v.id?C.accent:C.sub,
+              background:view===v.id?C.accent+"22":C.card2,color:view===v.id?C.accent:C.sub,
               border:`1px solid ${view===v.id?C.accent:C.border}`,
-              userSelect:"none",whiteSpace:"nowrap",position:"relative",flexShrink:0}}>
+              userSelect:"none",whiteSpace:"nowrap",flexShrink:0,position:"relative"}}>
             {v.label}
-            {v.badge&&(
-              <span style={{marginLeft:6,background:C.rose,color:"#fff",
-                borderRadius:99,padding:"1px 6px",fontSize:10,fontWeight:800}}>{v.badge}</span>
-            )}
+            {v.badge>0&&<span style={{marginLeft:5,background:C.rose,color:"#fff",
+              borderRadius:99,padding:"1px 6px",fontSize:10,fontWeight:800}}>{v.badge}</span>}
           </div>
         ))}
       </div>
 
-      {showAdd&&<AddForm/>}
+      {showAdd&&<AddEditForm/>}
 
-      {/* Calendar */}
-      {view==="calendar"&&(
-        <Card>
-          <CalendarView/>
-        </Card>
-      )}
+      {/* CALENDAR */}
+      {view==="calendar"&&<Card><CalendarView/></Card>}
 
-      {/* Today / Tomorrow / Upcoming task lists */}
-      {view!=="calendar"&&(
-        <>
-          {viewTasks.length===0?(
-            <Empty
-              icon={view==="today"?"📋":view==="tomorrow"?"🌅":"🗓️"}
-              title={view==="today"?"Nothing planned for today":view==="tomorrow"?"Tomorrow is empty":"No upcoming tasks"}
-              desc={view==="today"?"Add your tasks for today and stay on top of everything.":view==="tomorrow"?"Plan tomorrow tonight — your future self will thank you.":"Schedule tasks for future dates to stay organised."}
-              btnText="+ Add Task"
-              onBtn={()=>{ setFDate(view==="tomorrow"?tomorrowISO():todayISO()); setShowAdd(true); }}
-            />
-          ):(
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {view==="upcoming"?(
-                // Group by date for upcoming
-                Object.entries(
-                  viewTasks.reduce((acc,t)=>{
-                    if(!acc[t.date]) acc[t.date]=[];
-                    acc[t.date].push(t);
-                    return acc;
-                  },{})
-                ).sort(([a],[b])=>a.localeCompare(b)).map(([date,dayTasks])=>(
-                  <div key={date}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,marginTop:4}}>
-                      <div style={{fontWeight:800,color:date===todayISO()?C.green:date===tomorrowISO()?C.gold:C.text,fontSize:14}}>
-                        {fmtDate(date)}
-                      </div>
-                      <div style={{flex:1,height:1,background:C.border}}/>
-                      <div style={{fontSize:12,color:C.sub}}>{dayTasks.length} task{dayTasks.length>1?"s":""}</div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {dayTasks.map(t=><TaskCard key={t.id} t={t}/>)}
-                    </div>
-                  </div>
-                ))
-              ):(
-                viewTasks.map(t=><TaskCard key={t.id} t={t}/>)
-              )}
+      {/* TODAY */}
+      {view==="today"&&<>
+        <Filters/>
+        {todayTasks.length===0?(
+          <Empty icon="☀️" title="Nothing planned for today"
+            desc="Add tasks for today and make every hour count."
+            btnText="+ Add Today's Task" onBtn={()=>{setForm({...blankForm,startDate:today});setShowAdd(true);}}/>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {todayTasks.map(t=>(
+              <TaskCard key={t.id+today} t={t}
+                onToggle={()=>toggleTask(t.id,today)}
+                onEdit={()=>openEdit(t)} onDelete={()=>delTask(t.id)}/>
+            ))}
+            {todayTasks.every(t=>t.done)&&(
+              <div style={{textAlign:"center",padding:"16px",background:C.greenLo,
+                border:`1px solid ${C.green}44`,borderRadius:16}}>
+                <div style={{fontSize:28,marginBottom:6}}>🎉</div>
+                <div style={{fontWeight:800,color:C.green,fontSize:15}}>All done for today!</div>
+                <div style={{color:C.sub,fontSize:13,marginTop:4}}>You crushed it. Go plan tomorrow!</div>
+              </div>
+            )}
+          </div>
+        )}
+      </>}
+
+      {/* TOMORROW */}
+      {view==="tomorrow"&&<>
+        <div style={{background:`linear-gradient(135deg,${C.gold}18,${C.accent}12)`,
+          border:`1px solid ${C.gold}33`,borderRadius:14,padding:"12px 16px",
+          display:"flex",gap:10,alignItems:"center"}}>
+          <div style={{fontSize:22}}>💡</div>
+          <div style={{color:C.sub,fontSize:13,lineHeight:1.5}}>
+            Plan tomorrow <strong style={{color:C.text}}>tonight</strong>. Users who pre-plan sleep better and accomplish 40% more.
+          </div>
+        </div>
+        <Filters/>
+        {tomorrowTasks.length===0?(
+          <Empty icon="🌅" title="Tomorrow is wide open"
+            desc="What will make tomorrow great? Add it now."
+            btnText="+ Plan Tomorrow" onBtn={()=>{setForm({...blankForm,startDate:tomorrow});setShowAdd(true);}}/>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {tomorrowTasks.map(t=>(
+              <TaskCard key={t.id+tomorrow} t={t}
+                onToggle={()=>toggleTask(t.id,tomorrow)}
+                onEdit={()=>openEdit(t)} onDelete={()=>delTask(t.id)}/>
+            ))}
+          </div>
+        )}
+      </>}
+
+      {/* UPCOMING */}
+      {view==="upcoming"&&<>
+        <Filters/>
+        {Object.keys(upcoming).length===0?(
+          <Empty icon="🗓️" title="No upcoming tasks"
+            desc="Schedule tasks for future dates to stay ahead."
+            btnText="+ Schedule a Task" onBtn={()=>setShowAdd(true)}/>
+        ):(
+          Object.entries(upcoming).map(([iso,dayTasks])=>(
+            <div key={iso}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,marginTop:4}}>
+                <div style={{fontWeight:800,fontSize:14,
+                  color:iso===today?C.green:iso===tomorrow?C.gold:C.text}}>
+                  {fmtDate(iso)}
+                </div>
+                <div style={{flex:1,height:1,background:C.border}}/>
+                <div style={{fontSize:11,color:C.sub}}>{dayTasks.filter(t=>!t.done).length} pending</div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {dayTasks.map(t=>(
+                  <TaskCard key={t.id+iso} t={t}
+                    onToggle={()=>toggleTask(t.id,iso)}
+                    onEdit={()=>openEdit(t)} onDelete={()=>delTask(t.id)}/>
+                ))}
+              </div>
             </div>
-          )}
-        </>
-      )}
+          ))
+        )}
+      </>}
     </div>
   );
 }
+
 
 
 // ── TABS ───────────────────────────────────────────────────────────────────
@@ -1691,6 +1881,7 @@ const TABS=[
 function App(){
   const [user,setUser]=useState(()=>store.get("lg_user",null));
   const [tab,setTab]=useState("home");
+  const trackTab=(t)=>{ setTab(t); window.track&&window.track("tab_view",{tab:t}); };
   const [habits,setHabits]=useState(()=>store.get("lg_habits",[]));
   const [goals,setGoals]=useState(()=>store.get("lg_goals",[]));
   const [moodLog,setMoodLog]=useState(()=>store.get("lg_mood",[]));
@@ -1715,6 +1906,7 @@ function App(){
   const handleDone=(userData)=>{
     store.set("lg_user",userData);
     setUser(userData);
+    window.track&&window.track("signup_complete",{plan:userData.plan});
   };
 
   const handleReset=()=>{
@@ -1771,8 +1963,8 @@ function App(){
       </div>
 
       {/* Page content */}
-      <div style={{padding:"18px 16px 110px",maxWidth:600,margin:"0 auto",
-        position:"relative",zIndex:1,
+      <div key={tab} style={{padding:"18px 16px 110px",maxWidth:600,margin:"0 auto",
+        position:"relative",zIndex:1, animation:"fadeUp .28s cubic-bezier(.4,0,.2,1)",
         ...(tab==="ai"?{height:"calc(100vh - 130px)",display:"flex",flexDirection:"column"}:{})}}>
         {pages[tab]}
       </div>
@@ -1783,13 +1975,15 @@ function App(){
         borderTop:`1px solid ${C.border}`,padding:"6px 2px 18px"}}>
         <div style={{display:"flex",justifyContent:"space-around",maxWidth:600,margin:"0 auto"}}>
           {TABS.map(t=>(
-            <div key={t.id} onClick={()=>setTab(t.id)}
+            <div key={t.id} onClick={()=>trackTab(t.id)}
               style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,
-                padding:"5px 6px",borderRadius:12,cursor:"pointer",transition:"all .15s",
+                padding:"5px 6px",borderRadius:12,cursor:"pointer",transition:"all .2s",
                 background:tab===t.id?C.accentLo:"transparent",
                 border:`1px solid ${tab===t.id?C.accent+"44":"transparent"}`,
-                minWidth:40}}>
-              <div style={{fontSize:17}}>{t.icon}</div>
+                minWidth:40,position:"relative"}}>
+              {tab===t.id&&<div style={{position:"absolute",top:-6,left:"50%",transform:"translateX(-50%)",
+                width:20,height:3,borderRadius:99,background:C.accent}}/>}
+              <div style={{fontSize:tab===t.id?18:16,transition:"font-size .2s"}}>{t.icon}</div>
               <div style={{fontSize:8,color:tab===t.id?C.accent:C.dim,fontWeight:tab===t.id?700:400}}>{t.label}</div>
             </div>
           ))}
